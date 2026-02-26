@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const { from, body: messageBody, profileName } = parseTwilioWebhook(body)
 
     if (!messageBody || !from) {
-      return new NextResponse('OK', { status: 200 })
+      return new NextResponse(null, { status: 200 })
     }
 
     const supabase = createServiceClient()
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     if (!business) {
       console.log('No business found. Setup required.')
-      return new NextResponse('OK', { status: 200 })
+      return new NextResponse(null, { status: 200 })
     }
 
     // Normalize phone number
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
       if (error || !newLead) {
         console.error('Failed to create lead:', error)
-        return new NextResponse('OK', { status: 200 })
+        return new NextResponse(null, { status: 200 })
       }
       lead = newLead
     }
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
       if (error || !newConv) {
         console.error('Failed to create conversation:', error)
-        return new NextResponse('OK', { status: 200 })
+        return new NextResponse(null, { status: 200 })
       }
       conversation = newConv
     }
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         last_message_at: new Date().toISOString(),
       }).eq('id', conversation.id)
 
-      return new NextResponse('OK', { status: 200 })
+      return new NextResponse(null, { status: 200 })
     }
 
     // Save incoming message
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
       await sendWhatsAppMessage(from, result.finalResponse)
     }
 
-    return new NextResponse('OK', { status: 200 })
+    return new NextResponse(null, { status: 200 })
   } catch (error) {
     console.error('Webhook error:', error)
     return new NextResponse('Error', { status: 500 })
