@@ -118,12 +118,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Save incoming message
-    await supabase.from('messages').insert({
+    const { error: incomingMsgError } = await supabase.from('messages').insert({
       conversation_id: conversation.id,
       sender: 'lead',
       content: messageBody,
       metadata: { from, profile_name: profileName },
     })
+
+    if (incomingMsgError) {
+      console.error('Failed to save incoming lead message:', incomingMsgError)
+    }
 
     // Get conversation history
     const { data: messages } = await supabase
@@ -144,13 +148,17 @@ export async function POST(req: NextRequest) {
 
     // Save agent response
     if (result.finalResponse) {
-      await supabase.from('messages').insert({
+      const { error: msgError } = await supabase.from('messages').insert({
         conversation_id: conversation.id,
         sender: 'agent',
         agent_type: result.agentType,
         content: result.finalResponse,
         metadata: { tools_executed: result.toolsExecuted.map((t) => t.tool) },
       })
+
+      if (msgError) {
+        console.error('Failed to save agent message to DB:', msgError)
+      }
 
       // Update conversation last message
       await supabase.from('conversations').update({

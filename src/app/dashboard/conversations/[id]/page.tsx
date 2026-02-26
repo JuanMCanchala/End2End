@@ -33,7 +33,7 @@ export default function ConversationDetailPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Realtime subscription
+  // Realtime subscription (best-effort — fallback polling handles delivery gaps)
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase
@@ -44,7 +44,10 @@ export default function ConversationDetailPage() {
         table: 'messages',
         filter: `conversation_id=eq.${id}`,
       }, (payload) => {
-        setMessages((prev) => [...prev, payload.new as Message])
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === (payload.new as Message).id)
+          return exists ? prev : [...prev, payload.new as Message]
+        })
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -57,6 +60,26 @@ export default function ConversationDetailPage() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
+  }, [id])
+
+  // Polling fallback: ensures messages appear even when Realtime events
+  // are not delivered (service-role inserts + RLS can silently drop events)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/conversations/${id}`)
+        const data = await res.json()
+        if (!data.error && Array.isArray(data.messages)) {
+          setMessages(data.messages)
+        }
+        if (!data.error && data.conversation) {
+          setConversation((prev) => prev ? { ...prev, ...data.conversation } : data.conversation)
+        }
+      } catch {
+        // silently ignore polling errors
+      }
+    }, 4000)
+    return () => clearInterval(interval)
   }, [id])
 
   async function loadConversation() {
