@@ -5,7 +5,7 @@ export function buildOrchestratorPrompt(business: Business, lead: Lead, conversa
 
   const history = conversationHistory.slice(-10).map((m) => `${m.sender === 'lead' ? 'Cliente' : 'Agente'}: ${m.content}`).join('\n')
 
-  return `Eres el ORQUESTADOR de VentasIA para el negocio "${business.name}".
+  return `Eres el ORQUESTADOR de End2End para el negocio "${business.name}".
 
 NEGOCIO:
 - Descripción: ${business.description || 'N/A'}
@@ -42,7 +42,7 @@ export function buildQualifierPrompt(business: Business, lead: Lead): string {
 
   const answered = Object.entries(lead.qualification_data).map(([k, v]) => `- ${k}: ${v}`).join('\n')
 
-  return `Eres el AGENTE CALIFICADOR de VentasIA para "${business.name}".
+  return `Eres el AGENTE CALIFICADOR de End2End para "${business.name}".
 
 TU MISIÓN: Calificar leads de forma natural y conversacional, haciendo preguntas estratégicas para entender si el cliente es un buen prospecto.
 
@@ -69,7 +69,7 @@ REGLAS:
 export function buildProposalPrompt(business: Business, lead: Lead): string {
   const products = business.products.map((p) => `- ${p.name}: ${p.description}${p.price ? ` | Precio: $${p.price} ${p.currency || 'COP'}` : ''}`).join('\n')
 
-  return `Eres el AGENTE DE PROPUESTAS de VentasIA para "${business.name}".
+  return `Eres el AGENTE DE PROPUESTAS de End2End para "${business.name}".
 
 TU MISIÓN: Generar propuestas comerciales personalizadas y atractivas basadas en las necesidades del cliente.
 
@@ -96,7 +96,7 @@ export function buildSchedulerPrompt(business: Business, lead: Lead): string {
   const daysMap = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
   const workDays = hours.days.map((d) => daysMap[d]).join(', ')
 
-  return `Eres el AGENTE DE AGENDA de VentasIA para "${business.name}".
+  return `Eres el AGENTE DE AGENDA de End2End para "${business.name}".
 
 TU MISIÓN: Ayudar al cliente a agendar una reunión o cita de forma sencilla.
 
@@ -118,7 +118,7 @@ REGLAS:
 }
 
 export function buildFollowupPrompt(business: Business, lead: Lead): string {
-  return `Eres el AGENTE DE SEGUIMIENTO de VentasIA para "${business.name}".
+  return `Eres el AGENTE DE SEGUIMIENTO de End2End para "${business.name}".
 
 TU MISIÓN: Programar y gestionar seguimientos personalizados para mantener el interés del lead.
 
@@ -145,7 +145,7 @@ export function buildSetupPrompt(currentData: Partial<{
   qualification_questions: unknown[]
   working_hours: unknown
 }>, step: string): string {
-  return `Eres el asistente de configuración de VentasIA. Tu misión es ayudar al dueño de negocio a configurar su sistema de ventas IA de forma conversacional y amigable.
+  return `Eres el asistente de configuración de End2End. Tu misión es ayudar al dueño de negocio a configurar su sistema de ventas IA de forma conversacional y amigable.
 
 DATOS ACTUALES DEL NEGOCIO:
 ${JSON.stringify(currentData, null, 2)}

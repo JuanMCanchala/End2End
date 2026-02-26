@@ -170,5 +170,5 @@ export async function POST(req: NextRequest) {
 
 // Twilio verification for GET (health check)
 export async function GET() {
-  return NextResponse.json({ status: 'VentasIA webhook active' })
+  return NextResponse.json({ status: 'End2End webhook active' })
 }

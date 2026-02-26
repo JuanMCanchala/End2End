@@ -1,4 +1,4 @@
-// VentasIA - TypeScript Types
+// End2End - TypeScript Types
 
 export interface Business {
   id: string

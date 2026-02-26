@@ -39,6 +39,12 @@ export default function SetupPage() {
   async function loadSetupState() {
     try {
       const res = await fetch('/api/chat/setup')
+
+      if (res.status === 401) {
+        router.push('/login')
+        return
+      }
+
       const data = await res.json()
 
       if (data.completed) {
@@ -53,7 +59,7 @@ export default function SetupPage() {
         // Start with greeting
         const greeting: ChatMessage = {
           role: 'assistant',
-          content: '¡Hola! Soy el asistente de configuración de VentasIA 🤖\n\nVoy a ayudarte a configurar tu sistema de ventas inteligente en solo unos minutos.\n\n¿Cuál es el **nombre de tu negocio**?',
+          content: '¡Hola! Soy el asistente de configuración de End2End 🤖\n\nVoy a ayudarte a configurar tu sistema de ventas inteligente en solo unos minutos.\n\n¿Cuál es el **nombre de tu negocio**?',
           timestamp: new Date().toISOString(),
         }
         setMessages([greeting])
@@ -83,6 +89,11 @@ export default function SetupPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg.content }),
       })
+
+      if (res.status === 401) {
+        router.push('/login')
+        return
+      }
 
       const data = await res.json()
 
@@ -114,7 +125,7 @@ export default function SetupPage() {
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-6 text-white">
-          <div className="text-2xl font-bold mb-1">VentasIA</div>
+          <div className="text-2xl font-bold mb-1">End2End</div>
           <div className="text-gray-400 text-sm">Configuración de tu negocio</div>
           <div className="mt-3 bg-white/10 rounded-full h-2 w-full">
             <div
