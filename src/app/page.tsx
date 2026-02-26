@@ -48,7 +48,7 @@ export default function LandingPage() {
             </Button>
           </Link>
           <Link href="/dashboard">
-            <Button size="lg" variant="outline" className="text-white border-white/30 hover:bg-white/10 text-lg px-8 py-6">
+            <Button size="lg" variant="outline" className="bg-transparent text-white border-white/30 hover:bg-white/10 text-lg px-8 py-6">
               Ver dashboard
             </Button>
           </Link>
