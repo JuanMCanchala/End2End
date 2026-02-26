@@ -39,6 +39,12 @@ export default function SetupPage() {
   async function loadSetupState() {
     try {
       const res = await fetch('/api/chat/setup')
+
+      if (res.status === 401) {
+        router.push('/login')
+        return
+      }
+
       const data = await res.json()
 
       if (data.completed) {
@@ -83,6 +89,11 @@ export default function SetupPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg.content }),
       })
+
+      if (res.status === 401) {
+        router.push('/login')
+        return
+      }
 
       const data = await res.json()
 
