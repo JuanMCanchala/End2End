@@ -15,7 +15,7 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold">VentasIA</span>
+          <span className="text-2xl font-bold">End2End</span>
           <span className="text-xs bg-purple-500 px-2 py-0.5 rounded-full">BETA</span>
         </div>
         <div className="flex gap-3">
@@ -99,7 +99,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="text-center py-8 text-gray-500 text-sm border-t border-white/10">
-        VentasIA © 2024 — Construido para el Hackathon IA USB Cali
+        End2End © 2024 — Construido para el Hackathon IA USB Cali
       </footer>
     </div>
   )

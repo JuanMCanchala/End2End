@@ -27,7 +27,7 @@ export default function Sidebar() {
     <aside className="w-56 bg-slate-900 border-r border-slate-800 flex flex-col h-screen">
       {/* Logo */}
       <div className="px-4 py-5 border-b border-slate-800">
-        <div className="text-xl font-bold text-white">VentasIA</div>
+        <div className="text-xl font-bold text-white">End2End</div>
         <div className="text-xs text-purple-400 mt-0.5">Sistema Multi-Agente</div>
       </div>
 

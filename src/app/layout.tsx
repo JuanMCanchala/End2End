@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'VentasIA - Sistema Multi-Agente de Ventas',
+  title: 'End2End - Sistema Multi-Agente de Ventas',
   description: 'Automatiza tus ventas con 5 agentes IA trabajando 24/7',
 }
 

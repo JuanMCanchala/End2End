@@ -41,7 +41,7 @@ export default function SignupPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-white/5 border-white/10 text-white">
         <CardHeader className="text-center">
-          <div className="text-3xl font-bold mb-1">VentasIA</div>
+          <div className="text-3xl font-bold mb-1">End2End</div>
           <CardTitle className="text-xl">Crear cuenta</CardTitle>
           <CardDescription className="text-gray-400">Empieza a vender con IA hoy mismo</CardDescription>
         </CardHeader>
