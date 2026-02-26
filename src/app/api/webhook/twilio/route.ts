@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const body: Record<string, string> = {}
     formData.forEach((value, key) => { body[key] = value.toString() })
 
-    const { from, body: messageBody, profileName } = parseTwilioWebhook(body)
+    const { from, to, body: messageBody, profileName } = parseTwilioWebhook(body)
 
     if (!messageBody || !from) {
       return new NextResponse(null, { status: 200 })
@@ -18,13 +18,26 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // Get the business (for demo: first business or by whatsapp number)
-    const { data: business } = await supabase
+    // Normalize the "To" number to match what's stored in businesses.whatsapp_number
+    const toNumber = to.replace('whatsapp:', '')
+
+    // Find business by whatsapp_number matching the Twilio "To" field
+    let { data: business } = await supabase
       .from('businesses')
       .select('*')
-      .order('created_at', { ascending: true })
-      .limit(1)
+      .eq('whatsapp_number', toNumber)
       .single()
+
+    // Fallback: if no match (e.g. sandbox number shared across businesses), use first business
+    if (!business) {
+      const { data: fallbackBusiness } = await supabase
+        .from('businesses')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+      business = fallbackBusiness
+    }
 
     if (!business) {
       console.log('No business found. Setup required.')
