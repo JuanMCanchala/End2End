@@ -113,7 +113,7 @@ export default function Sidebar() {
       {/* Agents status */}
       <div className="px-4 py-3 border-t border-slate-800">
         <div className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Agentes activos</div>
-        {['🧠 Orquestador', '🎯 Calificador', '📄 Propuestas', '🗓️ Agenda', '📅 Seguimiento'].map((agent) => (
+        {['🧠 Orquestador', '🎯 Calificador', '📄 Propuestas', '🗓️ Agenda', '📅 Seguimiento', '🛒 Compras'].map((agent) => (
           <div key={agent} className="flex items-center gap-2 py-0.5">
             <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
             <span className="text-xs text-slate-400">{agent}</span>

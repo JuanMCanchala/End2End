@@ -4,8 +4,7 @@ import { buildPurchasePrompt } from '@/lib/utils/prompts'
 import { Business, Lead, Conversation, Message } from '@/types'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateInvoicePDF, InvoiceItem } from '@/lib/pdf/invoice'
-import { sendTelegramDocument, sendTelegramMessage } from '@/lib/telegram/client'
-import { sendWhatsAppMessage } from '@/lib/twilio/client'
+import { sendTelegramDocument } from '@/lib/telegram/client'
 import { logAgentAction } from './agent-actions'
 
 interface PurchaseInput {
@@ -74,26 +73,15 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
         currency,
       })
 
-      // Enviar PDF por el canal correcto
-      const chatId = lead.phone.replace('telegram:', '')
-      let pdfSent = false
+      const isDemo = lead.phone === '__demo__'
+      const isTelegram = lead.phone.startsWith('telegram:')
 
-      if (lead.phone.startsWith('telegram:')) {
-        pdfSent = await sendTelegramDocument(
-          chatId,
-          pdfBuffer,
-          `factura-${invoiceNumber}.pdf`,
-          `📄 Factura ${invoiceNumber} — ${business.name}`
-        )
-        // Enviar mensaje de cierre después del PDF
-        if (pdfSent) {
-          await sendTelegramMessage(chatId, closing_message)
-        }
-      } else {
-        // WhatsApp: por ahora enviar solo el mensaje de cierre (PDF requiere Media URL)
-        await sendWhatsAppMessage(lead.phone, `📄 Factura generada (${invoiceNumber})\n\n${closing_message}`)
-        pdfSent = true
-      }
+      // Preparar finalMessage ANTES de cualquier envío externo
+      // Para WhatsApp/demo: incluir número de factura y total en el mensaje
+      // Para Telegram: el PDF llega por separado, el closing_message es suficiente
+      finalMessage = isTelegram
+        ? closing_message
+        : `📄 *Factura ${invoiceNumber}*\n${closing_message}\n\n💰 Total: $${total_amount.toLocaleString('es-CO')} ${currency}`
 
       // Actualizar lead → sale_pending
       await supabase.from('leads').update({
@@ -109,20 +97,24 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
         last_message_at: new Date().toISOString(),
       }).eq('id', conversation.id)
 
-      // Guardar mensaje de cierre en BD
-      await supabase.from('messages').insert({
-        conversation_id: conversation.id,
-        sender: 'agent',
-        agent_type: 'proposal',
-        content: closing_message,
-        metadata: {
-          invoice_number: invoiceNumber,
-          total_amount,
-          currency,
-          pdf_sent: pdfSent,
-          items_count: items.length,
-        },
-      })
+      // Enviar PDF por Telegram (único canal que soporta documentos directamente)
+      // El texto de cierre lo envía el webhook vía result.finalResponse
+      // Para WhatsApp el webhook envía result.finalResponse como texto (no hay PDF nativo)
+      // Para demo no se envía nada externo
+      let pdfSent = false
+      if (!isDemo && isTelegram) {
+        try {
+          const chatId = lead.phone.replace('telegram:', '')
+          pdfSent = await sendTelegramDocument(
+            chatId,
+            pdfBuffer,
+            `factura-${invoiceNumber}.pdf`,
+            `📄 Factura ${invoiceNumber} — ${business.name}`
+          )
+        } catch (err) {
+          console.error('Failed to send Telegram document:', err)
+        }
+      }
 
       await logAgentAction(supabase, {
         business_id: business.id,
@@ -130,12 +122,11 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
         lead_id: lead.id,
         agent_type: 'proposal',
         action_type: 'send_invoice',
-        description: `Factura ${invoiceNumber} enviada. Total: ${total_amount} ${currency}`,
+        description: `Factura ${invoiceNumber} generada. Total: ${total_amount} ${currency}`,
         input_data: toolInput as Record<string, unknown>,
-        output_data: { invoice_number: invoiceNumber, pdf_sent: pdfSent },
+        output_data: { invoice_number: invoiceNumber, pdf_sent: pdfSent, is_demo: isDemo },
       })
 
-      finalMessage = closing_message
       return { success: true, invoice_number: invoiceNumber, pdf_sent: pdfSent }
     },
   }

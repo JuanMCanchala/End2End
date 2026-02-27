@@ -7,6 +7,7 @@ const agents = [
   { icon: '📄', title: 'Propuestas', desc: 'Genera cotizaciones personalizadas en segundos' },
   { icon: '🗓️', title: 'Agenda', desc: 'Programa reuniones y citas sin intervención humana' },
   { icon: '📅', title: 'Seguimiento', desc: 'Nunca pierdas un lead con seguimientos automáticos' },
+  { icon: '🛒', title: 'Compras', desc: 'Confirma pedidos, genera facturas PDF y cierra ventas automáticamente' },
 ]
 
 const steps = [
@@ -19,7 +20,7 @@ const steps = [
   {
     number: '02',
     title: 'La IA habla por ti',
-    desc: 'Los 5 agentes responden, califican y negocian con cada lead de forma natural.',
+    desc: 'Los 6 agentes responden, califican y negocian con cada lead de forma natural.',
     icon: '🤖',
   },
   {
@@ -91,7 +92,7 @@ export default function LandingPage() {
           🏆 Hackathon IA — Universidad de San Buenaventura
         </div>
         <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-          5 Agentes IA que<br />
+          6 Agentes IA que<br />
           <span className="text-purple-400">venden por ti</span>
         </h1>
         <p className="text-xl text-gray-300 mb-10 max-w-2xl mx-auto">
@@ -124,7 +125,7 @@ export default function LandingPage() {
             <div className="text-gray-400 mt-1">Disponibilidad</div>
           </div>
           <div>
-            <div className="text-4xl font-bold text-purple-400">5</div>
+            <div className="text-4xl font-bold text-purple-400">6</div>
             <div className="text-gray-400 mt-1">Agentes especializados</div>
           </div>
         </div>
@@ -263,8 +264,8 @@ export default function LandingPage() {
       {/* Agentes */}
       <section className="py-20 px-6 max-w-6xl mx-auto">
         <h2 className="text-3xl font-bold text-center mb-4">Tu equipo de ventas IA</h2>
-        <p className="text-gray-400 text-center mb-12">5 agentes especializados que trabajan juntos sin descanso</p>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <p className="text-gray-400 text-center mb-12">6 agentes especializados que trabajan juntos sin descanso</p>
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           {agents.map((f) => (
             <div key={f.title} className="bg-white/5 border border-white/10 rounded-xl p-6 text-center hover:bg-white/10 transition">
               <div className="text-4xl mb-3">{f.icon}</div>

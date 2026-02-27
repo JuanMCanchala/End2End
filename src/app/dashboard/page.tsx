@@ -142,13 +142,14 @@ export default function DashboardPage() {
       {/* Agent status panel */}
       <div className="mt-6 bg-slate-900 border border-slate-800 rounded-xl p-5">
         <h3 className="text-sm font-medium text-slate-400 mb-4">Estado de los Agentes</h3>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-6 gap-3">
           {[
             { name: 'Orquestador', icon: '🧠', desc: 'Routeando mensajes' },
             { name: 'Calificador', icon: '🎯', desc: 'Puntuando leads' },
             { name: 'Propuestas', icon: '📄', desc: 'Generando cotizaciones' },
             { name: 'Agenda', icon: '🗓️', desc: 'Agendando citas' },
             { name: 'Seguimiento', icon: '📅', desc: 'Programando follow-ups' },
+            { name: 'Compras', icon: '🛒', desc: 'Procesando pedidos' },
           ].map((agent) => (
             <div key={agent.name} className="text-center">
               <div className="relative inline-block">

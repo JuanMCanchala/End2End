@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'End2End - Sistema Multi-Agente de Ventas',
-  description: 'Automatiza tus ventas con 5 agentes IA trabajando 24/7',
+  description: 'Automatiza tus ventas con 6 agentes IA trabajando 24/7',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
