@@ -41,11 +41,50 @@ export default function DemoPage() {
   const [messages, setMessages] = useState<DemoMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [lead, setLead] = useState<Lead | null>(null)
   const [lastAgentType, setLastAgentType] = useState<AgentType | null>(null)
   const [lastTools, setLastTools] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
+
+  // Cargar mensajes existentes al montar
+  useEffect(() => {
+    async function loadExisting() {
+      try {
+        const res = await fetch('/api/demo/chat')
+        const data = await res.json()
+        if (data.messages && data.messages.length > 0) {
+          const mapped: DemoMessage[] = data.messages.map((m: {
+            sender: string
+            content: string
+            agent_type?: AgentType
+            metadata?: { tools_executed?: string[] }
+            created_at: string
+          }) => ({
+            role: m.sender === 'lead' ? 'user' : 'agent',
+            content: m.content,
+            agentType: m.agent_type ?? undefined,
+            toolsExecuted: m.metadata?.tools_executed ?? [],
+            timestamp: m.created_at,
+          }))
+          setMessages(mapped)
+          // Restaurar último agente y tools del último mensaje del agente
+          const lastAgent = [...data.messages].reverse().find((m: { sender: string }) => m.sender === 'agent')
+          if (lastAgent) {
+            setLastAgentType(lastAgent.agent_type ?? null)
+            setLastTools(lastAgent.metadata?.tools_executed ?? [])
+          }
+        }
+        if (data.lead) setLead(data.lead)
+      } catch {
+        // Silencioso — si falla el load inicial simplemente empieza vacío
+      } finally {
+        setInitialLoading(false)
+      }
+    }
+    loadExisting()
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -140,7 +179,11 @@ export default function DemoPage() {
         {/* Chat */}
         <div className="flex flex-col flex-1 min-w-0">
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-slate-950">
-            {messages.length === 0 && (
+            {initialLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-slate-500 text-sm">Cargando conversación...</div>
+              </div>
+            ) : messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center py-16">
                 <div className="text-5xl mb-4">🤖</div>
                 <h3 className="text-white font-semibold text-lg mb-2">Empieza la simulación</h3>

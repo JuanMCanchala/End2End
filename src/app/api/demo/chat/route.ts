@@ -7,6 +7,57 @@ export const dynamic = 'force-dynamic'
 
 const DEMO_PHONE = '__demo__'
 
+// GET /api/demo/chat — devuelve los mensajes y lead del demo actual
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const service = createServiceClient()
+
+    const { data: business } = await service
+      .from('businesses')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!business) return NextResponse.json({ messages: [], lead: null })
+
+    const { data: lead } = await service
+      .from('leads')
+      .select('*')
+      .eq('business_id', business.id)
+      .eq('phone', DEMO_PHONE)
+      .single()
+
+    if (!lead) return NextResponse.json({ messages: [], lead: null })
+
+    const { data: conversation } = await service
+      .from('conversations')
+      .select('id')
+      .eq('lead_id', lead.id)
+      .neq('status', 'closed')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!conversation) return NextResponse.json({ messages: [], lead })
+
+    const { data: messages } = await service
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversation.id)
+      .order('created_at', { ascending: true })
+      .limit(100)
+
+    return NextResponse.json({ messages: messages || [], lead })
+  } catch (error) {
+    console.error('Demo GET error:', error)
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+  }
+}
+
 // POST /api/demo/chat — envía un mensaje y recibe la respuesta del agente
 export async function POST(req: NextRequest) {
   try {

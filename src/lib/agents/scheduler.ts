@@ -48,12 +48,17 @@ export async function runSchedulerAgent(input: SchedulerInput): Promise<AgentLoo
 
       if (error) throw new Error(error.message)
 
-      // Update lead status
+      // Update lead status + boost score
+      // Agendar reunión = máxima señal de interés → mínimo 80 (hot)
+      const boostedScore = Math.max(lead.score, 80)
       await supabase.from('leads').update({
         status: 'meeting_scheduled',
         temperature: 'hot',
+        score: boostedScore,
         updated_at: new Date().toISOString(),
       }).eq('id', lead.id)
+      lead.score = boostedScore
+      lead.temperature = 'hot'
 
       await logAgentAction(supabase, {
         business_id: business.id,

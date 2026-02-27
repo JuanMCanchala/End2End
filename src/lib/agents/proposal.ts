@@ -46,11 +46,17 @@ export async function runProposalAgent(input: ProposalInput): Promise<AgentLoopR
 
       if (error) throw new Error(error.message)
 
-      // Update lead status
+      // Update lead status + boost score
+      // Pedir cotización directamente = intención de compra muy alta → mínimo 75 (hot)
+      const boostedScore = Math.max(lead.score, 75)
       await supabase.from('leads').update({
         status: 'proposal_sent',
+        score: boostedScore,
+        temperature: 'hot',
         updated_at: new Date().toISOString(),
       }).eq('id', lead.id)
+      lead.score = boostedScore
+      lead.temperature = 'hot'
 
       await logAgentAction(supabase, {
         business_id: business.id,
