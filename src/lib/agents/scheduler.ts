@@ -1,7 +1,7 @@
 import { runAgentLoop, ToolHandler, AgentLoopResult } from './agent-loop'
 import { SCHEDULER_TOOLS } from './tools'
 import { buildSchedulerPrompt } from '@/lib/utils/prompts'
-import { Business, Lead, Conversation, Message } from '@/types'
+import { Business, Lead, Conversation, Message, LeadTemperature } from '@/types'
 import { logAgentAction } from './agent-actions'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -20,6 +20,78 @@ export async function runSchedulerAgent(input: SchedulerInput): Promise<AgentLoo
   let confirmationMessage = ''
 
   const toolHandlers: ToolHandler = {
+    save_contact_info: async (toolInput) => {
+      const { email, phone } = toolInput as { email?: string; phone?: string }
+      const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (email) updatePayload.email = email
+      if (phone && phone !== lead.phone) updatePayload.phone = phone
+
+      await supabase.from('leads').update(updatePayload).eq('id', lead.id)
+      if (email) lead.email = email
+
+      await logAgentAction(supabase, {
+        business_id: business.id,
+        conversation_id: conversation.id,
+        lead_id: lead.id,
+        agent_type: 'scheduler',
+        action_type: 'save_contact_info',
+        description: `Datos de contacto guardados: ${[email && `email: ${email}`, phone && `tel: ${phone}`].filter(Boolean).join(', ')}`,
+        input_data: toolInput as Record<string, unknown>,
+        output_data: { email, phone },
+      })
+      return { success: true, email, phone }
+    },
+
+    cancel_appointment: async (toolInput) => {
+      const { reason, cancellation_message } = toolInput as {
+        reason: string
+        cancellation_message: string
+      }
+
+      confirmationMessage = cancellation_message
+
+      // Buscar la cita activa más reciente del lead
+      const { data: appt } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('lead_id', lead.id)
+        .in('status', ['scheduled', 'confirmed'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (appt) {
+        await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', appt.id)
+      }
+
+      // Bajar score: cancelación = señal negativa (-30 puntos, mínimo 0)
+      const reducedScore = Math.max(0, lead.score - 30)
+      const newTemp: LeadTemperature = reducedScore >= 70 ? 'hot' : reducedScore >= 40 ? 'warm' : 'cold'
+
+      await supabase.from('leads').update({
+        status: 'qualifying',
+        score: reducedScore,
+        temperature: newTemp,
+        updated_at: new Date().toISOString(),
+      }).eq('id', lead.id)
+      lead.score = reducedScore
+      lead.temperature = newTemp
+      lead.status = 'qualifying'
+
+      await logAgentAction(supabase, {
+        business_id: business.id,
+        conversation_id: conversation.id,
+        lead_id: lead.id,
+        agent_type: 'scheduler',
+        action_type: 'cancel_appointment',
+        description: `Cita cancelada. Razón: ${reason}. Score reducido a ${reducedScore}/100`,
+        input_data: toolInput as Record<string, unknown>,
+        output_data: { cancelled_appointment_id: appt?.id, new_score: reducedScore, new_temp: newTemp },
+      })
+
+      return { success: true, cancellation_message }
+    },
+
     create_appointment: async (toolInput) => {
       const { title, scheduled_at, duration_minutes, location, meeting_link, notes, confirmation_message } = toolInput as {
         title: string

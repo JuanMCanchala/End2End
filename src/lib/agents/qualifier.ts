@@ -133,6 +133,28 @@ export async function runQualifierAgent(input: QualifierInput): Promise<AgentLoo
       return { success: true, score, temperature, status: newStatus }
     },
 
+    save_contact_info: async (toolInput) => {
+      const { email, phone } = toolInput as { email?: string; phone?: string }
+      const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (email) updatePayload.email = email
+      if (phone && phone !== lead.phone) updatePayload.phone = phone
+
+      await supabase.from('leads').update(updatePayload).eq('id', lead.id)
+      if (email) lead.email = email
+
+      await logAgentAction(supabase, {
+        business_id: business.id,
+        conversation_id: conversation.id,
+        lead_id: lead.id,
+        agent_type: 'qualifier',
+        action_type: 'save_contact_info',
+        description: `Datos de contacto guardados: ${[email && `email: ${email}`, phone && `tel: ${phone}`].filter(Boolean).join(', ')}`,
+        input_data: toolInput as Record<string, unknown>,
+        output_data: { email, phone },
+      })
+      return { success: true, email, phone }
+    },
+
     send_qualifier_message: async (toolInput) => {
       const { message } = toolInput as { message: string }
       finalMessage = message

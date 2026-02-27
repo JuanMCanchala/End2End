@@ -98,9 +98,33 @@ export const QUALIFIER_TOOLS: Anthropic.Tool[] = [
       required: ['message'],
     },
   },
+  {
+    name: 'save_contact_info',
+    description: 'Guardar el correo electrónico y/o teléfono alternativo del lead. Llamar SOLO cuando el lead muestra intención clara de compra (score ≥ 70, pide precio, quiere agendar).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        email: { type: 'string', description: 'Correo electrónico del lead' },
+        phone: { type: 'string', description: 'Teléfono alternativo si es diferente al de WhatsApp' },
+      },
+    },
+  },
 ]
 
+const SAVE_CONTACT_INFO_TOOL: Anthropic.Tool = {
+  name: 'save_contact_info',
+  description: 'Guardar el correo electrónico y/o teléfono alternativo del lead. Llamar cuando el lead muestra intención clara de compra y aún no tiene email registrado.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      email: { type: 'string', description: 'Correo electrónico del lead' },
+      phone: { type: 'string', description: 'Teléfono alternativo si es diferente al de WhatsApp' },
+    },
+  },
+}
+
 export const PROPOSAL_TOOLS: Anthropic.Tool[] = [
+  SAVE_CONTACT_INFO_TOOL,
   {
     name: 'create_proposal',
     description: 'Crear y guardar una propuesta comercial en el sistema',
@@ -133,6 +157,19 @@ export const PROPOSAL_TOOLS: Anthropic.Tool[] = [
 ]
 
 export const SCHEDULER_TOOLS: Anthropic.Tool[] = [
+  SAVE_CONTACT_INFO_TOOL,
+  {
+    name: 'cancel_appointment',
+    description: 'Cancelar la cita más reciente del lead cuando el cliente lo solicita. Reduce el score del lead.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        reason: { type: 'string', description: 'Razón de la cancelación' },
+        cancellation_message: { type: 'string', description: 'Mensaje de confirmación para el lead' },
+      },
+      required: ['reason', 'cancellation_message'],
+    },
+  },
   {
     name: 'create_appointment',
     description: 'Crear y guardar una cita o reunión en el sistema',
