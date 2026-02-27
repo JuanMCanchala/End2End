@@ -120,9 +120,8 @@ export default function DemoPage() {
         return
       }
 
+      // Para purchase: recargar desde DB para obtener el metadata de factura
       if (data.agentType === 'purchase') {
-        // El agente de compras guarda directamente en DB (PDF card + texto)
-        // Recargar todos los mensajes para mostrar la tarjeta de factura
         const reloadRes = await fetch('/api/demo/chat')
         const reloadData = await reloadRes.json()
         if (reloadData.messages && reloadData.messages.length > 0) {
@@ -135,6 +134,7 @@ export default function DemoPage() {
             agentType: m.agent_type ?? undefined,
             toolsExecuted: [],
             timestamp: m.created_at,
+            metadata: m.metadata,
           })))
         }
       } else {
@@ -232,10 +232,10 @@ export default function DemoPage() {
             )}
 
             {messages.map((msg, i) => {
-              // Tarjeta especial para facturas PDF — detecta por metadata.pdf_base64
-              const isPdfInvoice = !!msg.metadata?.pdf_base64
-              if (isPdfInvoice) {
-                const meta = msg.metadata as { invoice_number: string; total_amount: number; currency: string; pdf_base64: string; filename: string }
+              // Tarjeta especial para facturas — detecta por metadata.is_invoice
+              const isInvoice = !!msg.metadata?.is_invoice
+              if (isInvoice) {
+                const meta = msg.metadata as { invoice_number: string; total_amount: number; currency: string; payment_link: string }
                 return (
                   <div key={i} className="flex gap-3 justify-start">
                     <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-sm flex-shrink-0 mt-1">🛒</div>
@@ -245,26 +245,19 @@ export default function DemoPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-2xl">📄</span>
                           <div>
-                            <div className="text-sm font-semibold text-white">Factura generada</div>
+                            <div className="text-sm font-semibold text-white">Factura de compra</div>
                             <div className="text-xs text-purple-300">{meta.invoice_number}</div>
                           </div>
                         </div>
-                        <div className="text-xs text-slate-300 bg-slate-900/60 rounded-lg px-3 py-2">{msg.content}</div>
-                        <button
-                          onClick={() => {
-                            const bytes = Uint8Array.from(atob(meta.pdf_base64), (c) => c.charCodeAt(0))
-                            const blob = new Blob([bytes], { type: 'application/pdf' })
-                            const url = URL.createObjectURL(blob)
-                            const a = document.createElement('a')
-                            a.href = url
-                            a.download = meta.filename || `${meta.invoice_number}.pdf`
-                            a.click()
-                            URL.revokeObjectURL(url)
-                          }}
-                          className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+                        <div className="text-xs text-slate-300 bg-slate-900/60 rounded-lg px-3 py-2 whitespace-pre-wrap">{msg.content}</div>
+                        <a
+                          href={meta.payment_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
                         >
-                          ⬇️ Descargar PDF
-                        </button>
+                          💳 Pagar ahora
+                        </a>
                       </div>
                       <span className="text-xs text-slate-600 mt-1 mx-1">{formatDistanceToNow(new Date(msg.timestamp), { addSuffix: true, locale: es })}</span>
                     </div>

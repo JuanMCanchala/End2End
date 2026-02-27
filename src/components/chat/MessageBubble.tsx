@@ -1,5 +1,3 @@
-'use client'
-
 import { Message } from '@/types'
 import { AGENT_DESCRIPTIONS } from '@/lib/utils/constants'
 import { formatDistanceToNow } from 'date-fns'
@@ -7,17 +5,6 @@ import { es } from 'date-fns/locale'
 
 interface MessageBubbleProps {
   message: Message
-}
-
-function downloadPdf(base64: string, filename: string) {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-  const blob = new Blob([bytes], { type: 'application/pdf' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
 }
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
@@ -34,15 +21,14 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     )
   }
 
-  // Tarjeta especial para facturas PDF — detecta por metadata.pdf_base64 sin importar agent_type
-  const isPdfInvoice = !!message.metadata?.pdf_base64
-  if (isPdfInvoice) {
+  // Tarjeta especial para facturas — detecta por metadata.is_invoice
+  const isInvoice = !!message.metadata?.is_invoice
+  if (isInvoice) {
     const meta = message.metadata as {
       invoice_number: string
       total_amount: number
       currency: string
-      pdf_base64: string
-      filename: string
+      payment_link: string
     }
     return (
       <div className="flex justify-start gap-2">
@@ -55,19 +41,21 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             <div className="flex items-center gap-2">
               <span className="text-2xl">📄</span>
               <div>
-                <div className="text-sm font-semibold text-white">Factura generada</div>
+                <div className="text-sm font-semibold text-white">Factura de compra</div>
                 <div className="text-xs text-purple-300">{meta.invoice_number}</div>
               </div>
             </div>
-            <div className="text-xs text-slate-300 bg-slate-900/60 rounded-lg px-3 py-2">
+            <div className="text-xs text-slate-300 bg-slate-900/60 rounded-lg px-3 py-2 whitespace-pre-wrap">
               {message.content}
             </div>
-            <button
-              onClick={() => downloadPdf(meta.pdf_base64, meta.filename || `${meta.invoice_number}.pdf`)}
-              className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+            <a
+              href={meta.payment_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
             >
-              ⬇️ Descargar PDF
-            </button>
+              💳 Pagar ahora
+            </a>
           </div>
           <div className="text-xs text-slate-600 mt-0.5 mx-1">
             {formatDistanceToNow(new Date(message.created_at), { addSuffix: true, locale: es })}
