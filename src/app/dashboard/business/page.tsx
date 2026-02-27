@@ -226,6 +226,12 @@ function InfoGeneral({ business, saving, onSave }: {
   const [description, setDescription] = useState(business.description || '')
   const [tone, setTone] = useState(business.tone)
 
+  useEffect(() => {
+    setName(business.name)
+    setDescription(business.description || '')
+    setTone(business.tone)
+  }, [business.name, business.description, business.tone])
+
   const tones = ['profesional', 'amigable', 'formal', 'informal', 'técnico']
 
   return (
@@ -277,6 +283,8 @@ function ProductsEditor({ products, saving, onSave }: {
   const [items, setItems] = useState<Product[]>(products)
   const [adding, setAdding] = useState(false)
   const [newProduct, setNewProduct] = useState<Product>({ name: '', description: '', price: undefined, currency: 'COP' })
+
+  useEffect(() => { setItems(products) }, [products])
 
   function update(index: number, field: keyof Product, value: string | number) {
     const updated = items.map((p, i) => i === index ? { ...p, [field]: value } : p)
@@ -374,6 +382,8 @@ function QuestionsEditor({ questions, saving, onSave }: {
   const [items, setItems] = useState<QualificationQuestion[]>(questions)
   const [newQ, setNewQ] = useState('')
 
+  useEffect(() => { setItems(questions) }, [questions])
+
   function remove(index: number) {
     const updated = items.filter((_, i) => i !== index)
     setItems(updated)
@@ -444,6 +454,12 @@ function HoursEditor({ hours, saving, onSave }: {
   const [start, setStart] = useState(hours?.start || '08:00')
   const [end, setEnd] = useState(hours?.end || '18:00')
   const [days, setDays] = useState<number[]>(hours?.days || [1, 2, 3, 4, 5])
+
+  useEffect(() => {
+    setStart(hours?.start || '08:00')
+    setEnd(hours?.end || '18:00')
+    setDays(hours?.days || [1, 2, 3, 4, 5])
+  }, [hours?.start, hours?.end, hours?.days])
 
   const dayLabels = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
