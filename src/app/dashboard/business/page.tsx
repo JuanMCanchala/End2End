@@ -102,10 +102,11 @@ export default function BusinessPage() {
         {/* ── Columna izquierda: formularios ── */}
         <div className="flex-1 space-y-6">
           <Section title="Información general" icon="🏢">
-            <InfoGeneral business={business} saving={saving} onSave={save} />
+            <InfoGeneral key={business.updated_at + '-info'} business={business} saving={saving} onSave={save} />
           </Section>
           <Section title="Productos y servicios" icon="📦">
             <ProductsEditor
+              key={business.updated_at + '-products'}
               products={business.products || []}
               saving={saving === 'products'}
               onSave={(products) => save('products', products)}
@@ -113,6 +114,7 @@ export default function BusinessPage() {
           </Section>
           <Section title="Preguntas de calificación" icon="🎯">
             <QuestionsEditor
+              key={business.updated_at + '-questions'}
               questions={business.qualification_questions || []}
               saving={saving === 'qualification_questions'}
               onSave={(q) => save('qualification_questions', q)}
@@ -120,6 +122,7 @@ export default function BusinessPage() {
           </Section>
           <Section title="Horario de atención" icon="🕐">
             <HoursEditor
+              key={business.updated_at + '-hours'}
               hours={business.working_hours}
               saving={saving === 'working_hours'}
               onSave={(h) => save('working_hours', h)}
