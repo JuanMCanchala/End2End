@@ -10,6 +10,7 @@ const navItems = [
   { href: '/dashboard', label: 'Métricas', icon: '📊', demo: false },
   { href: '/dashboard/leads', label: 'Leads', icon: '🎯', demo: false },
   { href: '/dashboard/conversations', label: 'Conversaciones', icon: '💬', demo: false },
+  { href: '/dashboard/appointments', label: 'Citas', icon: '🗓️', demo: false },
   { href: '/dashboard/activity', label: 'Actividad IA', icon: '🤖', demo: false },
   { href: '/dashboard/demo', label: 'Demo Chat', icon: '🧪', demo: true },
 ]

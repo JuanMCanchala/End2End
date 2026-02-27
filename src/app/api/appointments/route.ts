@@ -14,10 +14,10 @@ export async function GET(req: NextRequest) {
 
     const { data: appointments, error } = await supabase
       .from('appointments')
-      .select('*, lead:leads(name, phone)')
+      .select('*, lead:leads(id, name, phone, temperature, score)')
       .eq('business_id', business.id)
       .order('scheduled_at', { ascending: true })
-      .limit(50)
+      .limit(200)
 
     if (error) throw error
 
