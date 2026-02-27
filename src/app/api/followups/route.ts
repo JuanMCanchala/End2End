@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendWhatsAppMessage } from '@/lib/twilio/client'
+import { sendMessageToTelegram } from '@/lib/telegram/client'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,9 +68,13 @@ export async function POST(req: NextRequest) {
 
     if (action === 'send') {
       const lead = followup.leads as { id: string; name: string | null; phone: string }
-      const to = `whatsapp:${lead.phone}`
+      const phone = lead.phone
 
-      await sendWhatsAppMessage(to, followup.message)
+      if (phone.startsWith('telegram:')) {
+        await sendMessageToTelegram(phone, followup.message)
+      } else {
+        await sendWhatsAppMessage(`whatsapp:${phone}`, followup.message)
+      }
 
       await supabase
         .from('followups')
