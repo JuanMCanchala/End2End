@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,12 +30,19 @@ export default function LoginPage() {
       return
     }
 
-    router.refresh()
-    router.push('/dashboard')
+    router.replace('/dashboard')
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+      <Link
+        href="/"
+        className="absolute top-5 left-5 flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group"
+      >
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+        Volver al inicio
+      </Link>
+
       <Card className="w-full max-w-md bg-white/5 border-white/10 text-white">
         <CardHeader className="text-center">
           <div className="text-3xl font-bold mb-1">End2End</div>
