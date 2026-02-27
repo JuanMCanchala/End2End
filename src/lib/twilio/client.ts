@@ -10,16 +10,21 @@ export const TWILIO_FROM = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+141552
 export async function sendWhatsAppMessage(to: string, body: string): Promise<string | null> {
   try {
     const toFormatted = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`
+    const fromFormatted = TWILIO_FROM.startsWith('whatsapp:') ? TWILIO_FROM : `whatsapp:${TWILIO_FROM}`
+
+    console.log(`[Twilio] Sending to: ${toFormatted} | from: ${fromFormatted} | body length: ${body.length}`)
 
     const message = await twilioClient.messages.create({
-      from: TWILIO_FROM,
+      from: fromFormatted,
       to: toFormatted,
       body,
     })
 
+    console.log(`[Twilio] Message sent OK — SID: ${message.sid}`)
     return message.sid
-  } catch (error) {
-    console.error('Error sending WhatsApp message:', error)
+  } catch (error: unknown) {
+    const err = error as { message?: string; code?: number; status?: number }
+    console.error(`[Twilio] FAILED — code: ${err.code} | status: ${err.status} | message: ${err.message}`)
     return null
   }
 }
