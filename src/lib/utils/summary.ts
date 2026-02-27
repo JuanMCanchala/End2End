@@ -32,10 +32,17 @@ const periodLabel: Record<SummaryPeriod, string> = {
   mes: 'de este mes',
 }
 
-export async function generateSummary(businessId: string, period: SummaryPeriod): Promise<string> {
+export async function generateSummary(businessId: string, period: SummaryPeriod, businessName?: string): Promise<string> {
   const supabase = createServiceClient()
   const since = getPeriodStart(period)
   const label = periodLabel[period]
+
+  // Nombre del negocio (si no se pasó, lo buscamos)
+  let name = businessName
+  if (!name) {
+    const { data: biz } = await supabase.from('businesses').select('name').eq('id', businessId).single()
+    name = biz?.name || 'Mi empresa'
+  }
 
   // Leads nuevos en el período
   const { data: newLeads } = await supabase
@@ -108,7 +115,8 @@ export async function generateSummary(businessId: string, period: SummaryPeriod)
     timeZone: 'America/Bogota',
   })
 
-  return `📊 *Resumen ${label}*
+  return `🏢 *${name}*
+📊 *Resumen ${label}*
 📅 ${now}
 ${'─'.repeat(28)}
 

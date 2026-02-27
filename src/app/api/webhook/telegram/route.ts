@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       }
 
       await sendMessageToTelegram(String(chatId), `_Generando resumen ${command === 'dia' ? 'de hoy' : command === 'semana' ? 'de esta semana' : 'de este mes'}..._`)
-      const summary = await generateSummary(adminBusiness.id, command)
+      const summary = await generateSummary(adminBusiness.id, command, adminBusiness.name)
       await sendMessageToTelegram(String(chatId), summary)
       return new NextResponse(null, { status: 200 })
     }
