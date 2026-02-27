@@ -1,28 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { parseTwilioWebhook, sendWhatsAppMessage } from '@/lib/twilio/client'
+import { parseTelegramUpdate, sendMessageToTelegram } from '@/lib/telegram/client'
 import { runOrchestratorAgent } from '@/lib/agents/orchestrator'
 import { ACTIVE_CHANNEL } from '@/lib/channel/config'
 import { Business, Lead, Conversation, Message } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 type PendingOption = { index: number; business_id: string; name: string }
 
 export async function POST(req: NextRequest) {
-  // Solo procesar si Twilio está activo
-  if (ACTIVE_CHANNEL !== 'twilio') {
+  // Solo procesar si Telegram está activo
+  if (ACTIVE_CHANNEL !== 'telegram') {
     return new NextResponse(null, { status: 200 })
   }
 
   try {
-    const formData = await req.formData()
-    const body: Record<string, string> = {}
-    formData.forEach((value, key) => { body[key] = value.toString() })
+    const update = await req.json()
+    const parsed = parseTelegramUpdate(update)
+    if (!parsed) return new NextResponse(null, { status: 200 })
 
-    const { from, body: messageBody, profileName } = parseTwilioWebhook(body)
-    if (!messageBody || !from) return new NextResponse(null, { status: 200 })
-
+    const { from, body: messageBody, profileName, chatId } = parsed
     const supabase = createServiceClient()
-    const phone = from.replace('whatsapp:', '')
+    const phone = from // 'telegram:123456789'
 
     // ─── PASO 1: ¿Está esperando seleccionar empresa? ───
     const { data: pending } = await supabase
@@ -48,19 +48,17 @@ export async function POST(req: NextRequest) {
         )
 
         if (matches.length === 0) {
-          await sendWhatsAppMessage(from,
+          await sendMessageToTelegram(from,
             `No encontré ninguna empresa con "${messageBody}". Intenta con otro nombre.`
           )
           return new NextResponse(null, { status: 200 })
         }
 
         if (matches.length === 1) {
-          // Coincidencia exacta — asignar directo
           await supabase.from('pending_selections').delete().eq('phone', phone)
-          return await assignBusinessAndStart({ supabase, from, messageBody, profileName, phone, businessId: matches[0].id, businessName: matches[0].name, pendingProfileName: pending.profile_name })
+          return await assignBusinessAndStart({ supabase, from, chatId, messageBody, profileName, phone, businessId: matches[0].id, businessName: matches[0].name, pendingProfileName: pending.profile_name })
         }
 
-        // Varias coincidencias — guardar opciones y mostrar lista numerada
         const newOptions: PendingOption[] = matches.map((b: { id: string; name: string }, i: number) => ({
           index: i + 1,
           business_id: b.id,
@@ -70,7 +68,7 @@ export async function POST(req: NextRequest) {
         await supabase.from('pending_selections').update({ options: newOptions }).eq('phone', phone)
 
         const list = newOptions.map((o) => `*${o.index}.* ${o.name}`).join('\n')
-        await sendWhatsAppMessage(from,
+        await sendMessageToTelegram(from,
           `Encontré varias empresas:\n\n${list}\n\nResponde con el número de tu elección.`
         )
         return new NextResponse(null, { status: 200 })
@@ -82,14 +80,14 @@ export async function POST(req: NextRequest) {
 
       if (!chosen) {
         const list = options.map((o: PendingOption) => `*${o.index}.* ${o.name}`).join('\n')
-        await sendWhatsAppMessage(from,
+        await sendMessageToTelegram(from,
           `Opción inválida. Responde con un número:\n\n${list}`
         )
         return new NextResponse(null, { status: 200 })
       }
 
       await supabase.from('pending_selections').delete().eq('phone', phone)
-      return await assignBusinessAndStart({ supabase, from, messageBody, profileName, phone, businessId: chosen.business_id, businessName: chosen.name, pendingProfileName: pending.profile_name })
+      return await assignBusinessAndStart({ supabase, from, chatId, messageBody, profileName, phone, businessId: chosen.business_id, businessName: chosen.name, pendingProfileName: pending.profile_name })
     }
 
     // ─── PASO 2: ¿Lead conocido con empresa asignada? ───
@@ -122,13 +120,12 @@ export async function POST(req: NextRequest) {
       .eq('setup_completed', true)
 
     if (!businesses || businesses.length === 0) {
-      console.log('No businesses with completed setup.')
+      console.log('[Telegram] No businesses with completed setup.')
       return new NextResponse(null, { status: 200 })
     }
 
     if (businesses.length === 1) {
-      // Una sola empresa — asignar directo sin preguntar
-      return await assignBusinessAndStart({ supabase, from, messageBody, profileName, phone, businessId: businesses[0].id, businessName: businesses[0].name, pendingProfileName: profileName })
+      return await assignBusinessAndStart({ supabase, from, chatId, messageBody, profileName, phone, businessId: businesses[0].id, businessName: businesses[0].name, pendingProfileName: profileName })
     }
 
     // Varias empresas — pedir que escriba el nombre
@@ -138,23 +135,24 @@ export async function POST(req: NextRequest) {
       options: [],
     }, { onConflict: 'phone' })
 
-    await sendWhatsAppMessage(from,
+    await sendMessageToTelegram(from,
       `¡Hola${profileName ? ` ${profileName}` : ''}! 👋\n\nSomos *End2End*, plataforma multi-empresa.\n\n¿Con qué empresa deseas hablar? Escribe su nombre o parte de él.`
     )
     return new NextResponse(null, { status: 200 })
 
   } catch (error) {
-    console.error('Webhook error:', error)
-    return new NextResponse(null, { status: 500 })
+    console.error('[Telegram] Webhook error:', error)
+    return new NextResponse(null, { status: 200 }) // Siempre 200 a Telegram
   }
 }
 
 // ─── Asignar empresa, crear lead+conversación y dar bienvenida ───
 async function assignBusinessAndStart({
-  supabase, from, messageBody, profileName, phone, businessId, businessName, pendingProfileName,
+  supabase, from, chatId, messageBody, profileName, phone, businessId, businessName, pendingProfileName,
 }: {
   supabase: ReturnType<typeof createServiceClient>
   from: string
+  chatId: number
   messageBody: string
   profileName: string
   phone: string
@@ -184,30 +182,30 @@ async function assignBusinessAndStart({
     .single()
 
   if (leadError || !newLead) {
-    console.error('Failed to create lead:', leadError)
+    console.error('[Telegram] Failed to create lead:', leadError)
     return new NextResponse(null, { status: 200 })
   }
 
   const { data: newConv, error: convError } = await supabase
     .from('conversations')
-    .insert({ business_id: business.id, lead_id: newLead.id, status: 'active', channel: 'whatsapp' })
+    .insert({ business_id: business.id, lead_id: newLead.id, status: 'active', channel: 'telegram' })
     .select()
     .single()
 
   if (convError || !newConv) {
-    console.error('Failed to create conversation:', convError)
+    console.error('[Telegram] Failed to create conversation:', convError)
     return new NextResponse(null, { status: 200 })
   }
 
   const welcomeMessage = `¡Perfecto! Te conecto con *${businessName}* 🎉\n\n¿En qué te podemos ayudar hoy?`
 
   await supabase.from('messages').insert([
-    { conversation_id: newConv.id, sender: 'lead', content: messageBody, metadata: { from } },
+    { conversation_id: newConv.id, sender: 'lead', content: messageBody, metadata: { from, chat_id: chatId } },
     { conversation_id: newConv.id, sender: 'agent', agent_type: 'orchestrator', content: welcomeMessage, metadata: { system_event: true } },
   ])
 
   await supabase.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', newConv.id)
-  await sendWhatsAppMessage(from, welcomeMessage)
+  await sendMessageToTelegram(from, welcomeMessage)
 
   return new NextResponse(null, { status: 200 })
 }
@@ -239,7 +237,7 @@ async function processMessage({
   } else {
     const { data: newConv, error } = await supabase
       .from('conversations')
-      .insert({ business_id: business.id, lead_id: lead.id, status: 'active', channel: 'whatsapp' })
+      .insert({ business_id: business.id, lead_id: lead.id, status: 'active', channel: 'telegram' })
       .select()
       .single()
 
@@ -281,12 +279,12 @@ async function processMessage({
       metadata: { tools_executed: result.toolsExecuted.map((t) => t.tool) },
     })
     await supabase.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', conversation.id)
-    await sendWhatsAppMessage(from, result.finalResponse)
+    await sendMessageToTelegram(from, result.finalResponse)
   }
 
   return new NextResponse(null, { status: 200 })
 }
 
 export async function GET() {
-  return Response.json({ status: 'End2End webhook active' })
+  return Response.json({ status: 'End2End Telegram webhook active', channel: ACTIVE_CHANNEL })
 }
