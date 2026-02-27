@@ -5,7 +5,12 @@ export function buildOrchestratorPrompt(business: Business, lead: Lead, conversa
 
   const history = conversationHistory.slice(-10).map((m) => `${m.sender === 'lead' ? 'Cliente' : 'Agente'}: ${m.content}`).join('\n')
 
+  const now = new Date()
+  const fechaActual = now.toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })
+
   return `Eres el ORQUESTADOR de End2End para el negocio "${business.name}".
+
+FECHA Y HORA ACTUAL: ${fechaActual} (zona horaria Colombia UTC-5)
 
 NEGOCIO:
 - Descripción: ${business.description || 'N/A'}
@@ -83,14 +88,24 @@ TONO: ${business.tone}. Haz UNA pregunta a la vez. Natural, no invasivo.`
 }
 
 export function buildProposalPrompt(business: Business, lead: Lead): string {
-  const products = business.products.map((p) => `- ${p.name}: ${p.description}${p.price ? ` | Precio: $${p.price} ${p.currency || 'COP'}` : ''}`).join('\n')
+  const hasProducts = business.products && business.products.length > 0
+  const products = hasProducts
+    ? business.products.map((p) => `- ${p.name}: ${p.description}${p.price ? ` | Precio: $${p.price} ${p.currency || 'COP'}` : ' | Precio: a convenir'}`).join('\n')
+    : 'No hay productos/servicios configurados aún.'
 
   return `Eres el AGENTE DE PROPUESTAS de End2End para "${business.name}".
 
-TU MISIÓN: Generar propuestas comerciales personalizadas y atractivas basadas en las necesidades del cliente.
+TU MISIÓN: Generar propuestas comerciales basadas ÚNICAMENTE en los productos y precios definidos por la empresa.
 
-PRODUCTOS/SERVICIOS DISPONIBLES:
+PRODUCTOS/SERVICIOS DISPONIBLES (ÚNICA FUENTE DE VERDAD):
 ${products}
+
+⚠️ REGLAS ESTRICTAS DE PRECIOS Y PRODUCTOS:
+- PROHIBIDO inventar, estimar o suponer precios que no estén en la lista anterior.
+- PROHIBIDO mencionar productos o servicios que no estén en la lista anterior.
+- Si un producto no tiene precio definido, indícalo como "precio a convenir" o pide al cliente que lo consulte directamente.
+- Si el cliente pide algo que no está en la lista, di que ese producto/servicio no está disponible actualmente.
+- NUNCA combines precios de productos distintos para crear un "paquete" con precio inventado.
 
 LEAD:
 - Nombre: ${lead.name || 'Prospecto'}
@@ -98,15 +113,14 @@ LEAD:
 - Intereses registrados: ${JSON.stringify(lead.qualification_data)}
 - Temperatura: ${lead.temperature}
 
-REGLAS:
-1. Si el lead NO tiene email capturado → primero pídelo de forma natural ("Para enviarte la cotización, ¿me compartes tu correo?") y guárdalo con save_contact_info ANTES de generar la propuesta.
-2. Personaliza la propuesta según los datos de calificación
-3. Incluye solo los productos relevantes para sus necesidades
-4. Usa create_proposal para guardar la propuesta en el sistema
-5. Envía un resumen claro y atractivo por WhatsApp
-6. Incluye llamada a la acción clara
-7. Tono: ${business.tone}
-8. Moneda preferida: COP (pesos colombianos)`
+FLUJO:
+1. Si el lead NO tiene email → pídelo ("Para enviarte la cotización, ¿me compartes tu correo?") y guárdalo con save_contact_info ANTES de generar la propuesta.
+2. Personaliza la propuesta según los datos de calificación usando SOLO los productos de la lista.
+3. Usa create_proposal para guardar la propuesta en el sistema.
+4. Envía un resumen claro con los productos relevantes y sus precios exactos (o "a convenir").
+5. Incluye llamada a la acción clara.
+6. Tono: ${business.tone}
+7. Moneda: COP (pesos colombianos)`
 }
 
 export function buildSchedulerPrompt(
@@ -118,6 +132,10 @@ export function buildSchedulerPrompt(
   const daysMap = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
   const workDays = hours.days.map((d) => daysMap[d]).join(', ')
 
+  const now = new Date()
+  const fechaActual = now.toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })
+  const horaActual = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' })
+
   const calendlyConnected = calendlyEventTypes && calendlyEventTypes.length > 0
   const eventTypesText = calendlyConnected
     ? calendlyEventTypes!
@@ -128,6 +146,9 @@ export function buildSchedulerPrompt(
   return `Eres el AGENTE DE AGENDA de End2End para "${business.name}".
 
 TU MISIÓN: Ayudar al cliente a agendar o cancelar una reunión.
+
+FECHA Y HORA ACTUAL: ${fechaActual}, ${horaActual} (Colombia UTC-5)
+Usa esta fecha para calcular "el próximo lunes", "mañana", "la próxima semana", etc.
 
 HORARIOS DE ATENCIÓN:
 - Días: ${workDays}

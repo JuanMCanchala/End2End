@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sendWhatsAppMessage } from '@/lib/twilio/client'
+import { sendMessageToTelegram } from '@/lib/telegram/client'
 
 export const dynamic = 'force-dynamic'
-import { sendWhatsAppMessage } from '@/lib/twilio/client'
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,11 +43,17 @@ export async function POST(req: NextRequest) {
       last_message_at: new Date().toISOString(),
     }).eq('id', conversation_id)
 
-    // Send via WhatsApp
+    // Enviar por el canal correcto según el prefijo del teléfono
     const phone = (conversation.lead as { phone: string }).phone
-    const sid = await sendWhatsAppMessage(phone, message)
+    let channelResult: string | null = null
 
-    return NextResponse.json({ message: savedMessage, whatsapp_sid: sid })
+    if (phone.startsWith('telegram:')) {
+      channelResult = await sendMessageToTelegram(phone, message)
+    } else {
+      channelResult = await sendWhatsAppMessage(phone, message)
+    }
+
+    return NextResponse.json({ message: savedMessage, channel_result: channelResult })
   } catch (error) {
     console.error('Send message error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
