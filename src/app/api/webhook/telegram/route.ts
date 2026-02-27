@@ -17,19 +17,30 @@ export async function POST(req: NextRequest) {
 
   try {
     const update = await req.json()
+    console.log('[Telegram] Update recibido:', JSON.stringify(update).slice(0, 300))
+
     const parsed = parseTelegramUpdate(update)
-    if (!parsed) return new NextResponse(null, { status: 200 })
+    if (!parsed) {
+      console.log('[Telegram] Update sin texto — ignorado')
+      return new NextResponse(null, { status: 200 })
+    }
 
     const { from, body: messageBody, profileName, chatId } = parsed
+    console.log(`[Telegram] Mensaje de chatId=${chatId} phone="${from}": "${messageBody}"`)
+
     const supabase = createServiceClient()
     const phone = from // 'telegram:123456789'
 
     // ─── PASO 1: ¿Está esperando seleccionar empresa? ───
-    const { data: pending } = await supabase
+    const { data: pending, error: pendingErr } = await supabase
       .from('pending_selections')
       .select('*')
       .eq('phone', phone)
       .single()
+
+    if (pendingErr && pendingErr.code !== 'PGRST116') {
+      console.error('[Telegram] Error leyendo pending_selections:', pendingErr)
+    }
 
     if (pending) {
       const options: PendingOption[] = pending.options || []
@@ -91,13 +102,15 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── PASO 2: ¿Lead conocido con empresa asignada? ───
-    const { data: existingLead } = await supabase
+    const { data: existingLead, error: leadErr } = await supabase
       .from('leads')
       .select('*')
       .eq('phone', phone)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
+
+    console.log(`[Telegram] PASO 2 — existingLead: ${existingLead?.id ?? 'null'} | error: ${leadErr?.code ?? 'none'}`)
 
     if (existingLead) {
       const { data: business } = await supabase
@@ -114,6 +127,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── PASO 3: Lead nuevo — iniciar búsqueda ───
+    console.log('[Telegram] PASO 3 — buscando empresas disponibles')
     const { data: businesses } = await supabase
       .from('businesses')
       .select('id, name')
@@ -168,6 +182,21 @@ async function assignBusinessAndStart({
 
   if (!business) return new NextResponse(null, { status: 200 })
 
+  // Verificar si ya existe un lead con este phone (evita duplicados en reintentos)
+  const { data: existingLeadCheck } = await supabase
+    .from('leads')
+    .select('*')
+    .eq('phone', phone)
+    .eq('business_id', business.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (existingLeadCheck) {
+    console.log(`[Telegram] Lead ya existe (${existingLeadCheck.id}), redirigiendo a processMessage`)
+    return await processMessage({ supabase, from, messageBody, profileName, business: business as Business, lead: existingLeadCheck as Lead, phone })
+  }
+
   const { data: newLead, error: leadError } = await supabase
     .from('leads')
     .insert({
@@ -185,6 +214,7 @@ async function assignBusinessAndStart({
     console.error('[Telegram] Failed to create lead:', leadError)
     return new NextResponse(null, { status: 200 })
   }
+  console.log(`[Telegram] Lead creado: ${newLead.id}`)
 
   const { data: newConv, error: convError } = await supabase
     .from('conversations')
@@ -264,11 +294,14 @@ async function processMessage({
     .order('created_at', { ascending: true })
     .limit(20)
 
+  console.log(`[Telegram] Ejecutando orquestador para lead ${lead.id}...`)
   const result = await runOrchestratorAgent({
     business, lead, conversation,
     messages: (messages || []) as Message[],
     incomingMessage: messageBody,
   })
+
+  console.log(`[Telegram] Orquestador terminó — agente: ${result.agentType} | respuesta: ${result.finalResponse ? result.finalResponse.slice(0, 80) : 'VACÍA'}`)
 
   if (result.finalResponse) {
     await supabase.from('messages').insert({
