@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { parseTelegramUpdate, sendMessageToTelegram } from '@/lib/telegram/client'
 import { runOrchestratorAgent } from '@/lib/agents/orchestrator'
 import { ACTIVE_CHANNEL } from '@/lib/channel/config'
+import { generateSummary, parseAdminCommand, ADMIN_HELP } from '@/lib/utils/summary'
 import { Business, Lead, Conversation, Message } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,29 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient()
     const phone = from // 'telegram:123456789'
+
+    // ─── ADMIN: ¿Es el dueño de alguna empresa? ───────────────────────────────
+    const { data: adminBusiness } = await supabase
+      .from('businesses')
+      .select('id, name')
+      .eq('admin_telegram_chat_id', String(chatId))
+      .eq('setup_completed', true)
+      .single()
+
+    if (adminBusiness) {
+      console.log(`[Telegram] Admin detectado para negocio: ${adminBusiness.name}`)
+      const command = parseAdminCommand(messageBody)
+
+      if (command === 'ayuda' || command === null) {
+        await sendMessageToTelegram(String(chatId), ADMIN_HELP)
+        return new NextResponse(null, { status: 200 })
+      }
+
+      await sendMessageToTelegram(String(chatId), `_Generando resumen ${command === 'dia' ? 'de hoy' : command === 'semana' ? 'de esta semana' : 'de este mes'}..._`)
+      const summary = await generateSummary(adminBusiness.id, command)
+      await sendMessageToTelegram(String(chatId), summary)
+      return new NextResponse(null, { status: 200 })
+    }
 
     // ─── PASO 1: ¿Está esperando seleccionar empresa? ───
     const { data: pending, error: pendingErr } = await supabase

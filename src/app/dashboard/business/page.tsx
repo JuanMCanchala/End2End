@@ -128,6 +128,14 @@ export default function BusinessPage() {
               onSave={(h) => save('working_hours', h)}
             />
           </Section>
+          <Section title="Resúmenes por Telegram" icon="📱">
+            <TelegramAdminConfig
+              key={business.updated_at + '-telegram'}
+              currentChatId={business.admin_telegram_chat_id || ''}
+              saving={saving === 'admin_telegram_chat_id'}
+              onSave={(id) => save('admin_telegram_chat_id', id || null)}
+            />
+          </Section>
         </div>
 
         {/* ── Columna derecha: chat IA ── */}
@@ -495,6 +503,73 @@ function HoursEditor({ hours, saving, onSave }: {
           </Button>
         </div>
       </Field>
+    </div>
+  )
+}
+
+// ─── Telegram Admin Config ───
+function TelegramAdminConfig({ currentChatId, saving, onSave }: {
+  currentChatId: string
+  saving: boolean
+  onSave: (id: string) => void
+}) {
+  const [chatId, setChatId] = useState(currentChatId)
+
+  useEffect(() => { setChatId(currentChatId) }, [currentChatId])
+
+  return (
+    <div className="space-y-4">
+      <p className="text-slate-400 text-xs">
+        Vincula tu Telegram para pedir resúmenes del negocio directamente desde el bot.
+      </p>
+
+      {/* Instrucciones */}
+      <div className="bg-blue-950/30 border border-blue-800/30 rounded-lg p-3 text-xs space-y-1">
+        <div className="text-blue-300 font-medium mb-2">¿Cómo obtener tu Chat ID?</div>
+        <div className="text-slate-400 space-y-1">
+          <div>1. Abre Telegram y busca <span className="text-white font-mono">@userinfobot</span></div>
+          <div>2. Escríbele cualquier mensaje</div>
+          <div>3. Te responde con tu <span className="text-white">Id</span> (número)</div>
+          <div>4. Pega ese número aquí y guarda</div>
+        </div>
+      </div>
+
+      <Field label="Tu Telegram Chat ID">
+        <div className="flex gap-2">
+          <Input
+            value={chatId}
+            onChange={(e) => setChatId(e.target.value)}
+            placeholder="Ej: 123456789"
+            className="bg-slate-800 border-slate-700 text-white"
+          />
+          <Button
+            size="sm"
+            onClick={() => onSave(chatId)}
+            disabled={saving}
+            className="bg-purple-600 hover:bg-purple-700 shrink-0"
+          >
+            {saving ? '...' : 'Guardar'}
+          </Button>
+        </div>
+      </Field>
+
+      {/* Comandos disponibles */}
+      <div className="bg-slate-800/50 rounded-lg p-3">
+        <div className="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wider">Comandos en el bot</div>
+        <div className="space-y-1">
+          {[
+            ['resumen dia', 'Resumen de hoy'],
+            ['resumen semana', 'Resumen de esta semana'],
+            ['resumen mes', 'Resumen de este mes'],
+            ['ayuda', 'Ver todos los comandos'],
+          ].map(([cmd, desc]) => (
+            <div key={cmd} className="flex items-center gap-3 text-xs">
+              <span className="font-mono text-purple-400 w-28">{cmd}</span>
+              <span className="text-slate-500">{desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

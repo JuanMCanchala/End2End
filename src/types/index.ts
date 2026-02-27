@@ -11,6 +11,8 @@ export interface Business {
   working_hours: WorkingHours
   whatsapp_number: string | null
   setup_completed: boolean
+  // Admin Telegram
+  admin_telegram_chat_id?: string | null
   // Calendly integration
   calendly_access_token?: string | null
   calendly_refresh_token?: string | null
