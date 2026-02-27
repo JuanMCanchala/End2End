@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Business, Product, QualificationQuestion } from '@/types'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,23 @@ export default function BusinessPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const { toast } = useToast()
 
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
+    {
+      role: 'assistant',
+      content:
+        '¡Hola! Soy tu asistente de configuración. Puedo ayudarte con lenguaje natural.\n\nPor ejemplo:\n• "Agrega un producto Plan Pro por $200.000 COP"\n• "Cambia el tono a amigable"\n• "¿Cuáles son mis horarios actuales?"\n• "Pon el horario de 9am a 6pm de lunes a viernes"',
+    },
+  ])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => { loadBusiness() }, [])
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages, chatLoading])
 
   async function loadBusiness() {
     const res = await fetch('/api/business')
@@ -40,50 +56,145 @@ export default function BusinessPage() {
     }
   }
 
+  async function sendChatMessage() {
+    if (!chatInput.trim() || chatLoading || !business) return
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    const newMessages = [...chatMessages, { role: 'user' as const, content: userMessage }]
+    setChatMessages(newMessages)
+    setChatLoading(true)
+    try {
+      const res = await fetch('/api/business/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages.slice(-10), business }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: data.message }])
+      if (data.business) {
+        setBusiness(data.business)
+        toast({ title: '¡Actualizado!', description: 'La configuración fue guardada automáticamente.' })
+      }
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Lo siento, ocurrió un error. Por favor intenta de nuevo.' },
+      ])
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
   if (loading) return <div className="p-6 text-slate-500 text-center pt-20">Cargando...</div>
   if (!business) return <div className="p-6 text-slate-500 text-center pt-20">No se encontró la empresa.</div>
 
   return (
-    <div className="p-6 max-w-3xl">
-      <div className="mb-8">
+    <div className="p-6">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Mi Empresa</h1>
         <p className="text-slate-400 text-sm mt-1">
-          Personaliza el contexto que usan los agentes IA para atender a tus clientes.
+          Configura tu negocio manualmente o usa el asistente IA del panel derecho.
         </p>
       </div>
 
-      <div className="space-y-6">
-        {/* INFO GENERAL */}
-        <Section title="Información general" icon="🏢">
-          <InfoGeneral business={business} saving={saving} onSave={save} />
-        </Section>
+      <div className="flex gap-6 items-start">
+        {/* ── Columna izquierda: formularios ── */}
+        <div className="flex-1 space-y-6">
+          <Section title="Información general" icon="🏢">
+            <InfoGeneral business={business} saving={saving} onSave={save} />
+          </Section>
+          <Section title="Productos y servicios" icon="📦">
+            <ProductsEditor
+              products={business.products || []}
+              saving={saving === 'products'}
+              onSave={(products) => save('products', products)}
+            />
+          </Section>
+          <Section title="Preguntas de calificación" icon="🎯">
+            <QuestionsEditor
+              questions={business.qualification_questions || []}
+              saving={saving === 'qualification_questions'}
+              onSave={(q) => save('qualification_questions', q)}
+            />
+          </Section>
+          <Section title="Horario de atención" icon="🕐">
+            <HoursEditor
+              hours={business.working_hours}
+              saving={saving === 'working_hours'}
+              onSave={(h) => save('working_hours', h)}
+            />
+          </Section>
+        </div>
 
-        {/* PRODUCTOS */}
-        <Section title="Productos y servicios" icon="📦">
-          <ProductsEditor
-            products={business.products || []}
-            saving={saving === 'products'}
-            onSave={(products) => save('products', products)}
-          />
-        </Section>
+        {/* ── Columna derecha: chat IA ── */}
+        <div className="w-80 shrink-0 sticky top-6 h-[calc(100vh-8rem)] flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-slate-800 flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-sm">🤖</div>
+            <div>
+              <div className="text-sm font-semibold text-white">Asistente IA</div>
+              <div className="text-xs text-slate-500">Configura con lenguaje natural</div>
+            </div>
+          </div>
 
-        {/* PREGUNTAS DE CALIFICACIÓN */}
-        <Section title="Preguntas de calificación" icon="🎯">
-          <QuestionsEditor
-            questions={business.qualification_questions || []}
-            saving={saving === 'qualification_questions'}
-            onSave={(q) => save('qualification_questions', q)}
-          />
-        </Section>
+          {/* Mensajes */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'assistant' && (
+                  <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs mr-1.5 flex-shrink-0 mt-0.5">
+                    🤖
+                  </div>
+                )}
+                <div
+                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs whitespace-pre-wrap leading-relaxed ${
+                    msg.role === 'user'
+                      ? 'bg-purple-600 text-white rounded-br-none'
+                      : 'bg-slate-800 text-slate-200 rounded-bl-none'
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-xs mr-1.5 flex-shrink-0">🤖</div>
+                <div className="bg-slate-800 rounded-2xl rounded-bl-none px-3 py-2">
+                  <div className="flex gap-1 items-center h-4">
+                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
 
-        {/* HORARIOS */}
-        <Section title="Horario de atención" icon="🕐">
-          <HoursEditor
-            hours={business.working_hours}
-            saving={saving === 'working_hours'}
-            onSave={(h) => save('working_hours', h)}
-          />
-        </Section>
+          {/* Input */}
+          <div className="p-3 border-t border-slate-800">
+            <div className="flex gap-2">
+              <input
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                placeholder="Escribe un comando..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage() } }}
+                disabled={chatLoading}
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={chatLoading || !chatInput.trim()}
+                className="px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white rounded-lg text-xs font-medium transition-colors"
+              >
+                ↑
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 mt-1.5 text-center">Enter para enviar</p>
+          </div>
+        </div>
       </div>
     </div>
   )
