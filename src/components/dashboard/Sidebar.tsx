@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,6 +20,14 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [showDebug, setShowDebug] = useState(false)
+  const [pending, setPending] = useState<Array<{ phone: string; profile_name: string | null; options: unknown[]; created_at: string }>>([])
+
+  useEffect(() => {
+    if (!showDebug) return
+    supabase.from('pending_selections').select('*').order('created_at', { ascending: false })
+      .then(({ data }) => setPending(data || []))
+  }, [showDebug])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -29,10 +38,46 @@ export default function Sidebar() {
   return (
     <aside className="w-56 bg-slate-900 border-r border-slate-800 flex flex-col h-screen">
       {/* Logo */}
-      <div className="px-4 py-5 border-b border-slate-800">
-        <div className="text-xl font-bold text-white">End2End</div>
-        <div className="text-xs text-purple-400 mt-0.5">Sistema Multi-Agente</div>
+      <div className="px-4 py-5 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <div className="text-xl font-bold text-white">End2End</div>
+          <div className="text-xs text-purple-400 mt-0.5">Sistema Multi-Agente</div>
+        </div>
+        <button
+          onClick={() => setShowDebug((v) => !v)}
+          title="Debug: mensajes sin asignar"
+          className="text-slate-600 hover:text-slate-300 transition-colors text-base"
+        >
+          ⚙️
+        </button>
       </div>
+
+      {/* Debug panel */}
+      {showDebug && (
+        <div className="mx-2 my-2 bg-slate-950 border border-yellow-700/40 rounded-lg p-2 text-xs">
+          <div className="text-yellow-400 font-bold mb-1">🐛 Pending selections ({pending.length})</div>
+          {pending.length === 0 ? (
+            <div className="text-slate-500">Ninguno</div>
+          ) : (
+            pending.map((p) => (
+              <div key={p.phone} className="border-t border-slate-800 pt-1 mt-1">
+                <div className="text-white">{p.profile_name || '—'}</div>
+                <div className="text-slate-400">{p.phone}</div>
+                <div className="text-slate-500">
+                  {(p.options as unknown[]).length === 0 ? 'Esperando búsqueda' : `${(p.options as unknown[]).length} opciones mostradas`}
+                </div>
+              </div>
+            ))
+          )}
+          <button
+            onClick={() => supabase.from('pending_selections').select('*').order('created_at', { ascending: false }).then(({ data }) => setPending(data || []))}
+            className="mt-1 text-slate-500 hover:text-slate-300"
+          >
+            ↻ refrescar
+          </button>
+        </div>
+      )}
+
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
