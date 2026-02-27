@@ -14,6 +14,7 @@ const navItems = [
   { href: '/dashboard/appointments', label: 'Citas', icon: '🗓️', demo: false },
   { href: '/dashboard/activity', label: 'Actividad IA', icon: '🤖', demo: false },
   { href: '/dashboard/business', label: 'Mi Empresa', icon: '🏢', demo: false },
+  { href: '/dashboard/followups', label: 'Follow-ups', icon: '📅', demo: true },
   { href: '/dashboard/demo', label: 'Demo Chat', icon: '🧪', demo: true },
 ]
 
