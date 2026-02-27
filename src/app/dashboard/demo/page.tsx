@@ -232,8 +232,8 @@ export default function DemoPage() {
             )}
 
             {messages.map((msg, i) => {
-              // Tarjeta especial para facturas PDF (agente de compras)
-              const isPdfInvoice = msg.agentType === 'purchase' && msg.metadata?.pdf_base64
+              // Tarjeta especial para facturas PDF — detecta por metadata.pdf_base64
+              const isPdfInvoice = !!msg.metadata?.pdf_base64
               if (isPdfInvoice) {
                 const meta = msg.metadata as { invoice_number: string; total_amount: number; currency: string; pdf_base64: string; filename: string }
                 return (

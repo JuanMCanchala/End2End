@@ -19,6 +19,8 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
   const { business, lead, conversation, messages, incomingMessage } = input
   const supabase = createServiceClient()
 
+  console.log(`[Purchase] Iniciado — lead: ${lead.phone}, conv: ${conversation.id}, msg: "${incomingMessage.slice(0, 60)}"`)
+
   let finalMessage = ''
 
   const toolHandlers: ToolHandler = {
@@ -76,14 +78,16 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
       const isDemo = lead.phone === '__demo__'
       const isTelegram = lead.phone.startsWith('telegram:')
 
-      // Guardar el PDF como base64 en la tabla messages para que el dashboard pueda descargarlo
-      // Este mensaje tiene agent_type 'purchase' para que MessageBubble lo renderice con botón de descarga
-      await supabase.from('messages').insert({
+      // Guardar el PDF como base64 en la tabla messages para que el dashboard pueda descargarlo.
+      // Nota: el CHECK constraint de messages.agent_type requiere correr la migración 006 en Supabase
+      // para aceptar 'purchase'. Mientras tanto, el campo is_invoice:true en metadata sirve como señal.
+      const { error: insertError } = await supabase.from('messages').insert({
         conversation_id: conversation.id,
         sender: 'agent',
         agent_type: 'purchase',
         content: `📄 Factura ${invoiceNumber} — $${total_amount.toLocaleString('es-CO')} ${currency}`,
         metadata: {
+          is_invoice: true,
           invoice_number: invoiceNumber,
           total_amount,
           currency,
@@ -92,6 +96,28 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
           filename: `factura-${invoiceNumber}.pdf`,
         },
       })
+
+      if (insertError) {
+        // Si falla (e.g. migración 006 no corrida aún), intentar con agent_type 'proposal'
+        console.error('[Purchase] Error insertando mensaje con agent_type purchase, reintentando con proposal:', insertError.message)
+        await supabase.from('messages').insert({
+          conversation_id: conversation.id,
+          sender: 'agent',
+          agent_type: 'proposal',
+          content: `📄 Factura ${invoiceNumber} — $${total_amount.toLocaleString('es-CO')} ${currency}`,
+          metadata: {
+            is_invoice: true,
+            invoice_number: invoiceNumber,
+            total_amount,
+            currency,
+            items,
+            pdf_base64: pdfBuffer.toString('base64'),
+            filename: `factura-${invoiceNumber}.pdf`,
+          },
+        })
+      }
+
+      console.log(`[Purchase] Factura ${invoiceNumber} guardada en DB. PDF size: ${pdfBuffer.length} bytes`)
 
       // El mensaje de texto que verán los leads (en WhatsApp/Telegram) y el demo
       // Para Telegram: el webhook enviará closing_message como texto; el PDF llega por separado

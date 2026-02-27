@@ -34,8 +34,8 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     )
   }
 
-  // Tarjeta especial para facturas PDF
-  const isPdfInvoice = message.agent_type === 'purchase' && message.metadata?.pdf_base64
+  // Tarjeta especial para facturas PDF — detecta por metadata.pdf_base64 sin importar agent_type
+  const isPdfInvoice = !!message.metadata?.pdf_base64
   if (isPdfInvoice) {
     const meta = message.metadata as {
       invoice_number: string
