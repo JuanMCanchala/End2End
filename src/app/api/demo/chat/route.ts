@@ -80,6 +80,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Negocio no configurado. Completa el setup primero.' }, { status: 404 })
     }
 
+    // ─── COMANDO /salida — reiniciar demo ───
+    if (message.trim().toLowerCase() === '/salida') {
+      const { data: demoLead } = await service.from('leads').select('id').eq('business_id', business.id).eq('phone', DEMO_PHONE).single()
+      if (demoLead) {
+        await service.from('conversations').update({ status: 'closed' }).eq('lead_id', demoLead.id)
+        await service.from('leads').update({ score: 0, temperature: 'cold', status: 'new', qualification_data: {}, name: 'Cliente Demo' }).eq('id', demoLead.id)
+      }
+      const { data: updatedLead } = await service.from('leads').select('*').eq('business_id', business.id).eq('phone', DEMO_PHONE).single()
+      return NextResponse.json({
+        response: '👋 ¡Hasta luego! La conversación fue cerrada. Escribe un mensaje para iniciar una nueva sesión.',
+        agentType: 'system',
+        toolsExecuted: [],
+        lead: updatedLead,
+      })
+    }
+
     // Buscar o crear el lead demo
     let { data: lead } = await service
       .from('leads')

@@ -24,6 +24,27 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceClient()
     const phone = from.replace('whatsapp:', '')
 
+    // ─── COMANDO /salida — cerrar chat y volver al selector de empresa ───
+    if (messageBody.trim().toLowerCase() === '/salida') {
+      const { data: currentLeads } = await supabase.from('leads').select('id').eq('phone', phone)
+      if (currentLeads && currentLeads.length > 0) {
+        await supabase.from('conversations').update({ status: 'closed' }).in('lead_id', currentLeads.map((l: { id: string }) => l.id))
+      }
+      await supabase.from('leads').delete().eq('phone', phone)
+      await supabase.from('pending_selections').delete().eq('phone', phone)
+
+      const { data: businesses } = await supabase.from('businesses').select('id, name').eq('setup_completed', true)
+      if (!businesses || businesses.length === 0) return new NextResponse(null, { status: 200 })
+
+      if (businesses.length === 1) {
+        return await assignBusinessAndStart({ supabase, from, messageBody: 'hola', profileName, phone, businessId: businesses[0].id, businessName: businesses[0].name, pendingProfileName: profileName })
+      }
+
+      await supabase.from('pending_selections').upsert({ phone, profile_name: profileName || null, options: [] }, { onConflict: 'phone' })
+      await sendWhatsAppMessage(from, `¡Hasta luego! 👋\n\n¿Con qué empresa deseas hablar? Escribe su nombre o parte de él.`)
+      return new NextResponse(null, { status: 200 })
+    }
+
     // ─── PASO 1: ¿Está esperando seleccionar empresa? ───
     const { data: pending } = await supabase
       .from('pending_selections')
