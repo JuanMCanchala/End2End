@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import ActivityFeed from '@/components/dashboard/ActivityFeed'
 import { AgentAction } from '@/types'
+import { createClient } from '@/lib/supabase/client'
 
 export default function ActivityPage() {
   const [actions, setActions] = useState<AgentAction[]>([])
@@ -32,18 +32,9 @@ export default function ActivityPage() {
 
   async function loadActivity() {
     try {
-      const supabase = createClient()
-      const { data: business } = await supabase.from('businesses').select('id').single()
-      if (!business) { setLoading(false); return }
-
-      const { data } = await supabase
-        .from('agent_actions')
-        .select('*')
-        .eq('business_id', business.id)
-        .order('created_at', { ascending: false })
-        .limit(100)
-
-      setActions(data || [])
+      const res = await fetch('/api/activity')
+      const data = await res.json()
+      setActions(data.actions || [])
     } catch (err) {
       console.error('Failed to load activity:', err)
     } finally {

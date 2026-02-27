@@ -76,13 +76,13 @@ export const QUALIFIER_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'update_lead_score',
-    description: 'Actualizar el score y temperatura del lead basado en la calificación',
+    description: 'OBLIGATORIO llamar en cada interacción. Actualiza el score (0-100) y temperatura del lead. Calcula: (peso de respuestas obtenidas / peso total) × 100, ajusta ±10 por entusiasmo. 0-39=cold, 40-69=warm, 70-100=hot.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        score: { type: 'number', description: 'Score de 0 a 100' },
-        temperature: { type: 'string', enum: ['hot', 'warm', 'cold'], description: 'Temperatura del lead' },
-        reason: { type: 'string', description: 'Razón del score asignado' },
+        score: { type: 'number', description: 'Score de 0 a 100 basado en respuestas obtenidas y entusiasmo del lead' },
+        temperature: { type: 'string', enum: ['hot', 'warm', 'cold'], description: 'cold=0-39, warm=40-69, hot=70-100' },
+        reason: { type: 'string', description: 'Breve razón del score asignado' },
       },
       required: ['score', 'temperature', 'reason'],
     },

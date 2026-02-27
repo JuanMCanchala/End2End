@@ -16,7 +16,7 @@ export async function GET() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Run queries in parallel
+    // Todas las queries en paralelo — incluida wonLeads que antes corría sola después
     const [
       { count: totalLeads },
       { data: leadsByTemp },
@@ -26,15 +26,17 @@ export async function GET() {
       { count: messagesToday },
       { count: leadsToday },
       { data: agentActions },
+      { count: wonLeadsCount },
     ] = await Promise.all([
       supabase.from('leads').select('*', { count: 'exact', head: true }).eq('business_id', businessId),
       supabase.from('leads').select('temperature').eq('business_id', businessId),
       supabase.from('conversations').select('status').eq('business_id', businessId),
       supabase.from('proposals').select('*', { count: 'exact', head: true }).eq('business_id', businessId).eq('status', 'sent'),
       supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('business_id', businessId).in('status', ['scheduled', 'confirmed']),
-      supabase.from('messages').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
+      supabase.from('messages').select('*, conversations!inner(business_id)', { count: 'exact', head: true }).eq('conversations.business_id', businessId).gte('created_at', today.toISOString()),
       supabase.from('leads').select('*', { count: 'exact', head: true }).eq('business_id', businessId).gte('created_at', today.toISOString()),
       supabase.from('agent_actions').select('created_at').eq('business_id', businessId).order('created_at', { ascending: false }).limit(7),
+      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('business_id', businessId).eq('status', 'won'),
     ])
 
     const tempCounts = (leadsByTemp || []).reduce((acc: Record<string, number>, l: { temperature: string }) => {
@@ -47,11 +49,7 @@ export async function GET() {
       return acc
     }, {})
 
-    const wonLeads = await supabase
-      .from('leads')
-      .select('*', { count: 'exact', head: true })
-      .eq('business_id', businessId)
-      .eq('status', 'won')
+    const wonLeads = { count: wonLeadsCount }
 
     const conversionRate = totalLeads && totalLeads > 0
       ? Math.round(((wonLeads.count || 0) / totalLeads) * 100)

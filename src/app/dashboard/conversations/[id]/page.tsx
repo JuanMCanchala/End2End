@@ -14,7 +14,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import Link from 'next/link'
 
 export default function ConversationDetailPage() {
-  const { id } = useParams()
+  const params = useParams()
+  const id = Array.isArray(params.id) ? params.id[0] : params.id as string
   const router = useRouter()
   const { toast } = useToast()
   const [conversation, setConversation] = useState<Conversation | null>(null)
@@ -62,23 +63,22 @@ export default function ConversationDetailPage() {
     return () => { supabase.removeChannel(channel) }
   }, [id])
 
-  // Polling fallback: ensures messages appear even when Realtime events
-  // are not delivered (service-role inserts + RLS can silently drop events)
+  // Polling fallback: ensures messages appear even when Realtime events are not delivered
+  // Pausa automáticamente cuando el tab no está visible para no desperdiciar requests
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const poll = async () => {
+      if (document.visibilityState === 'hidden') return
       try {
         const res = await fetch(`/api/conversations/${id}`)
         const data = await res.json()
-        if (!data.error && Array.isArray(data.messages)) {
-          setMessages(data.messages)
-        }
+        if (!data.error && Array.isArray(data.messages)) setMessages(data.messages)
         if (!data.error && data.conversation) {
           setConversation((prev) => prev ? { ...prev, ...data.conversation } : data.conversation)
         }
-      } catch {
-        // silently ignore polling errors
-      }
-    }, 4000)
+      } catch { /* silently ignore */ }
+    }
+
+    const interval = setInterval(poll, 10000) // 10s en vez de 4s
     return () => clearInterval(interval)
   }, [id])
 
@@ -124,16 +124,25 @@ export default function ConversationDetailPage() {
     e.preventDefault()
     if (!humanMessage.trim() || sending) return
     setSending(true)
+    const messageText = humanMessage.trim()
+    setHumanMessage('')
 
     try {
-      await fetch('/api/messages/send', {
+      const res = await fetch('/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversation_id: id, message: humanMessage.trim() }),
+        body: JSON.stringify({ conversation_id: id, message: messageText }),
       })
-      setHumanMessage('')
+      const data = await res.json()
+      if (data.message) {
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === data.message.id)
+          return exists ? prev : [...prev, data.message]
+        })
+      }
       toast({ title: 'Mensaje enviado', description: 'El mensaje fue enviado por WhatsApp.' })
     } catch (err) {
+      setHumanMessage(messageText)
       toast({ title: 'Error', variant: 'destructive', description: 'No se pudo enviar el mensaje' })
     } finally {
       setSending(false)
@@ -151,7 +160,7 @@ export default function ConversationDetailPage() {
   const lead = conversation.lead as Lead
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900">
         <Link href="/dashboard/conversations" className="text-slate-400 hover:text-white">←</Link>

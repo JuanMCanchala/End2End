@@ -1,10 +1,32 @@
 import { runAgentLoop, ToolHandler, AgentLoopResult } from './agent-loop'
 import { QUALIFIER_TOOLS } from './tools'
 import { buildQualifierPrompt } from '@/lib/utils/prompts'
-import { Business, Lead, Conversation, Message } from '@/types'
+import { Business, Lead, Conversation, Message, LeadTemperature } from '@/types'
 import { logAgentAction } from './agent-actions'
 import { createServiceClient } from '@/lib/supabase/server'
 import { LEAD_SCORE_THRESHOLDS } from '@/lib/utils/constants'
+
+function calcScore(qualData: Record<string, string>, questions: Business['qualification_questions']): { score: number; temperature: LeadTemperature } {
+  if (questions.length === 0) {
+    // Sin preguntas configuradas: puntúa por cantidad de campos respondidos (máx 60)
+    const answered = Object.keys(qualData).length
+    const score = Math.min(answered * 20, 60)
+    const temperature: LeadTemperature = score >= LEAD_SCORE_THRESHOLDS.HOT ? 'hot' : score >= LEAD_SCORE_THRESHOLDS.WARM ? 'warm' : 'cold'
+    return { score, temperature }
+  }
+
+  const totalWeight = questions.reduce((sum, q) => sum + q.weight, 0)
+  if (totalWeight === 0) return { score: 0, temperature: 'cold' }
+
+  const answeredWeight = questions
+    .filter((q) => qualData[q.field] !== undefined && qualData[q.field] !== '')
+    .reduce((sum, q) => sum + q.weight, 0)
+
+  // Base score va de 0 a 80 según preguntas respondidas; los 20 restantes los asigna Claude con update_lead_score
+  const score = Math.round((answeredWeight / totalWeight) * 80)
+  const temperature: LeadTemperature = score >= LEAD_SCORE_THRESHOLDS.HOT ? 'hot' : score >= LEAD_SCORE_THRESHOLDS.WARM ? 'warm' : 'cold'
+  return { score, temperature }
+}
 
 interface QualifierInput {
   business: Business
@@ -26,9 +48,16 @@ export async function runQualifierAgent(input: QualifierInput): Promise<AgentLoo
 
       const qualData = { ...lead.qualification_data, [field]: value }
 
+      // Auto-calcular score cada vez que se guarda una respuesta
+      const { score, temperature } = calcScore(qualData, business.qualification_questions)
+      const newScore = Math.max(lead.score, score) // nunca bajar el score
+      const newStatus = newScore >= LEAD_SCORE_THRESHOLDS.HOT ? 'qualified' : 'qualifying'
+
       const updatePayload: Record<string, unknown> = {
         qualification_data: qualData,
-        status: 'qualifying',
+        score: newScore,
+        temperature,
+        status: newStatus,
         last_interaction: new Date().toISOString(),
       }
 
@@ -43,8 +72,11 @@ export async function runQualifierAgent(input: QualifierInput): Promise<AgentLoo
 
       if (error) throw new Error(error.message)
 
-      // Update local lead object
+      // Actualizar objeto local
       lead.qualification_data = qualData
+      lead.score = newScore
+      lead.temperature = temperature
+      lead.status = newStatus
       if (lead_name) lead.name = lead_name
 
       await logAgentAction(supabase, {
@@ -53,12 +85,12 @@ export async function runQualifierAgent(input: QualifierInput): Promise<AgentLoo
         lead_id: lead.id,
         agent_type: 'qualifier',
         action_type: 'save_qualification_answer',
-        description: `Respuesta guardada: ${field} = ${value}`,
+        description: `Respuesta guardada: ${field} = "${value}" → Score auto: ${newScore}/100`,
         input_data: toolInput as Record<string, unknown>,
-        output_data: { saved: true },
+        output_data: { saved: true, auto_score: newScore, temperature },
       })
 
-      return { success: true, field, value }
+      return { success: true, field, value, current_score: newScore }
     },
 
     update_lead_score: async (toolInput) => {

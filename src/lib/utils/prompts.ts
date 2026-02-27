@@ -38,32 +38,39 @@ Analiza el mensaje y toma la acción correcta.`
 }
 
 export function buildQualifierPrompt(business: Business, lead: Lead): string {
-  const questions = business.qualification_questions.map((q, i) => `${i + 1}. ${q.question} (campo: ${q.field}, peso: ${q.weight}/10)`).join('\n')
+  const questions = business.qualification_questions.map((q, i) => `${i + 1}. ${q.question} (campo: "${q.field}", peso: ${q.weight}/10)`).join('\n')
 
+  const totalWeight = business.qualification_questions.reduce((s, q) => s + q.weight, 0)
   const answered = Object.entries(lead.qualification_data).map(([k, v]) => `- ${k}: ${v}`).join('\n')
+  const pendingQuestions = business.qualification_questions.filter((q) => !lead.qualification_data[q.field])
+  const nextQuestion = pendingQuestions[0]
 
   return `Eres el AGENTE CALIFICADOR de End2End para "${business.name}".
 
-TU MISIÓN: Calificar leads de forma natural y conversacional, haciendo preguntas estratégicas para entender si el cliente es un buen prospecto.
+TU MISIÓN: Calificar leads conversacionalmente. Haces preguntas, guardas respuestas y actualizas el score en CADA interacción.
 
 PREGUNTAS DE CALIFICACIÓN (en orden de prioridad):
-${questions || 'Preguntas por defecto: ¿Qué necesitas? ¿Cuándo lo necesitas? ¿Cuál es tu presupuesto?'}
+${questions || '1. ¿Qué necesitas exactamente? (campo: "need", peso: 8/10)\n2. ¿Cuándo lo necesitas? (campo: "timeline", peso: 6/10)\n3. ¿Cuál es tu presupuesto aproximado? (campo: "budget", peso: 9/10)'}
 
-DATOS YA RECOPILADOS:
+DATOS YA RECOPILADOS (${Object.keys(lead.qualification_data).length}/${business.qualification_questions.length || 3} preguntas):
 ${answered || 'Ninguno aún'}
+
+PRÓXIMA PREGUNTA PENDIENTE: ${nextQuestion ? `"${nextQuestion.question}" (campo: "${nextQuestion.field}")` : '¡Todas respondidas! Dar score final.'}
 
 LEAD:
 - Nombre: ${lead.name || 'Desconocido'}
-- Estado actual: ${lead.status}
-- Score: ${lead.score}/100
+- Score actual: ${lead.score}/100
+- Temperatura: ${lead.temperature}
 
-REGLAS:
-1. Haz UNA pregunta a la vez, de forma natural
-2. Usa las tools para guardar las respuestas del cliente
-3. Cuando tengas suficientes datos, califica al lead con update_lead_score
-4. Sé amable pero eficiente - no hagas una encuesta aburrida
-5. Tono: ${business.tone}
-6. Si el lead parece muy interesado (score > 70), notifica que puede pedir una propuesta`
+INSTRUCCIONES OBLIGATORIAS (sigue SIEMPRE este orden):
+1. Si el mensaje del cliente contiene información relevante → llama PRIMERO a save_qualification_answer
+2. SIEMPRE llama a update_lead_score con el score actualizado:
+   - Fórmula: (peso de preguntas respondidas / peso total ${totalWeight || 23}) × 100, ajusta +/- 10 según entusiasmo
+   - 0-39 = cold, 40-69 = warm, 70-100 = hot
+3. Luego llama a send_qualifier_message con la siguiente pregunta pendiente
+4. Si ya tienes TODAS las respuestas: score final, temperatura hot/warm/cold, e invita a pedir propuesta si score ≥ 70
+
+TONO: ${business.tone}. Haz UNA pregunta a la vez. Natural, no invasivo.`
 }
 
 export function buildProposalPrompt(business: Business, lead: Lead): string {

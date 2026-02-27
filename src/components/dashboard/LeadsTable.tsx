@@ -102,7 +102,9 @@ export default function LeadsTable({ leads }: LeadsTableProps) {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs">
-                    {formatDistanceToNow(new Date(lead.last_interaction), { addSuffix: true, locale: es })}
+                    {lead.last_interaction
+                      ? formatDistanceToNow(new Date(lead.last_interaction), { addSuffix: true, locale: es })
+                      : 'Sin actividad'}
                   </td>
                 </tr>
               ))
