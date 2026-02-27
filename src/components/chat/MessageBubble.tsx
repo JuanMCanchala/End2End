@@ -1,3 +1,5 @@
+'use client'
+
 import { Message } from '@/types'
 import { AGENT_DESCRIPTIONS } from '@/lib/utils/constants'
 import { formatDistanceToNow } from 'date-fns'
@@ -5,6 +7,17 @@ import { es } from 'date-fns/locale'
 
 interface MessageBubbleProps {
   message: Message
+}
+
+function downloadPdf(base64: string, filename: string) {
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+  const blob = new Blob([bytes], { type: 'application/pdf' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
@@ -21,7 +34,50 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     )
   }
 
-  const agentLabel = message.agent_type ? AGENT_DESCRIPTIONS[message.agent_type] : '🤖 IA'
+  // Tarjeta especial para facturas PDF
+  const isPdfInvoice = message.agent_type === 'purchase' && message.metadata?.pdf_base64
+  if (isPdfInvoice) {
+    const meta = message.metadata as {
+      invoice_number: string
+      total_amount: number
+      currency: string
+      pdf_base64: string
+      filename: string
+    }
+    return (
+      <div className="flex justify-start gap-2">
+        <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-xs flex-shrink-0 mt-1">
+          🛒
+        </div>
+        <div className="flex flex-col items-start max-w-[75%]">
+          <div className="text-xs text-slate-500 mb-1 ml-1">🛒 Compras</div>
+          <div className="bg-gradient-to-br from-purple-900/60 to-slate-800 border border-purple-600/40 rounded-2xl rounded-bl-none px-4 py-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">📄</span>
+              <div>
+                <div className="text-sm font-semibold text-white">Factura generada</div>
+                <div className="text-xs text-purple-300">{meta.invoice_number}</div>
+              </div>
+            </div>
+            <div className="text-xs text-slate-300 bg-slate-900/60 rounded-lg px-3 py-2">
+              {message.content}
+            </div>
+            <button
+              onClick={() => downloadPdf(meta.pdf_base64, meta.filename || `${meta.invoice_number}.pdf`)}
+              className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+            >
+              ⬇️ Descargar PDF
+            </button>
+          </div>
+          <div className="text-xs text-slate-600 mt-0.5 mx-1">
+            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true, locale: es })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const agentLabel = message.agent_type ? (AGENT_DESCRIPTIONS[message.agent_type] ?? '🤖 IA') : '🤖 IA'
 
   return (
     <div className={`flex ${isLead ? 'justify-end' : 'justify-start'} gap-2`}>

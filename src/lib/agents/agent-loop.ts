@@ -94,7 +94,7 @@ export async function runAgentLoop(
 
       // Check if any tool returned a "stop" signal (agent decided to delegate)
       const stopTool = toolsExecuted.find((t) =>
-        ['route_to_qualifier', 'route_to_proposal', 'route_to_scheduler', 'route_to_followup'].includes(t.tool)
+        ['route_to_qualifier', 'route_to_proposal', 'route_to_scheduler', 'route_to_followup', 'route_to_purchase'].includes(t.tool)
       )
 
       if (stopTool && agentType === 'orchestrator') {

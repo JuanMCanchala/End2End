@@ -76,12 +76,29 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
       const isDemo = lead.phone === '__demo__'
       const isTelegram = lead.phone.startsWith('telegram:')
 
-      // Preparar finalMessage ANTES de cualquier envío externo
-      // Para WhatsApp/demo: incluir número de factura y total en el mensaje
-      // Para Telegram: el PDF llega por separado, el closing_message es suficiente
+      // Guardar el PDF como base64 en la tabla messages para que el dashboard pueda descargarlo
+      // Este mensaje tiene agent_type 'purchase' para que MessageBubble lo renderice con botón de descarga
+      await supabase.from('messages').insert({
+        conversation_id: conversation.id,
+        sender: 'agent',
+        agent_type: 'purchase',
+        content: `📄 Factura ${invoiceNumber} — $${total_amount.toLocaleString('es-CO')} ${currency}`,
+        metadata: {
+          invoice_number: invoiceNumber,
+          total_amount,
+          currency,
+          items,
+          pdf_base64: pdfBuffer.toString('base64'),
+          filename: `factura-${invoiceNumber}.pdf`,
+        },
+      })
+
+      // El mensaje de texto que verán los leads (en WhatsApp/Telegram) y el demo
+      // Para Telegram: el webhook enviará closing_message como texto; el PDF llega por separado
+      // Para WhatsApp y demo: el webhook envía el mensaje formateado con número de factura
       finalMessage = isTelegram
         ? closing_message
-        : `📄 *Factura ${invoiceNumber}*\n${closing_message}\n\n💰 Total: $${total_amount.toLocaleString('es-CO')} ${currency}`
+        : `📄 Factura ${invoiceNumber}\n\n${closing_message}\n\n💰 Total: $${total_amount.toLocaleString('es-CO')} ${currency}`
 
       // Actualizar lead → sale_pending
       await supabase.from('leads').update({
@@ -97,10 +114,8 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
         last_message_at: new Date().toISOString(),
       }).eq('id', conversation.id)
 
-      // Enviar PDF por Telegram (único canal que soporta documentos directamente)
+      // Enviar PDF por Telegram (único canal con soporte nativo de documentos)
       // El texto de cierre lo envía el webhook vía result.finalResponse
-      // Para WhatsApp el webhook envía result.finalResponse como texto (no hay PDF nativo)
-      // Para demo no se envía nada externo
       let pdfSent = false
       if (!isDemo && isTelegram) {
         try {
@@ -120,7 +135,7 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
         business_id: business.id,
         conversation_id: conversation.id,
         lead_id: lead.id,
-        agent_type: 'proposal',
+        agent_type: 'purchase',
         action_type: 'send_invoice',
         description: `Factura ${invoiceNumber} generada. Total: ${total_amount} ${currency}`,
         input_data: toolInput as Record<string, unknown>,
@@ -145,7 +160,7 @@ export async function runPurchaseAgent(input: PurchaseInput): Promise<AgentLoopR
 
   return {
     finalResponse: finalMessage,
-    agentType: 'proposal',
+    agentType: 'purchase',
     toolsExecuted: [],
   }
 }

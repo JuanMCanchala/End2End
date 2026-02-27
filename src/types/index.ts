@@ -89,7 +89,7 @@ export interface Message {
 }
 
 export type MessageSender = 'lead' | 'agent' | 'human'
-export type AgentType = 'orchestrator' | 'qualifier' | 'followup' | 'proposal' | 'scheduler' | 'system'
+export type AgentType = 'orchestrator' | 'qualifier' | 'followup' | 'proposal' | 'scheduler' | 'system' | 'purchase'
 
 export interface AgentAction {
   id: string

@@ -11,6 +11,7 @@ export const AGENT_DESCRIPTIONS = {
   proposal: '📄 Propuestas',
   scheduler: '🗓️ Agenda',
   system: '⚙️ Sistema',
+  purchase: '🛒 Compras',
 } as const
 
 export const STATUS_LABELS: Record<string, string> = {

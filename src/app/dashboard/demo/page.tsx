@@ -15,6 +15,7 @@ interface DemoMessage {
   agentType?: AgentType
   toolsExecuted?: string[]
   timestamp: string
+  metadata?: Record<string, unknown>
 }
 
 const AGENT_COLORS: Record<string, string> = {
@@ -59,14 +60,15 @@ export default function DemoPage() {
             sender: string
             content: string
             agent_type?: AgentType
-            metadata?: { tools_executed?: string[] }
+            metadata?: Record<string, unknown>
             created_at: string
           }) => ({
             role: m.sender === 'lead' ? 'user' : 'agent',
             content: m.content,
             agentType: m.agent_type ?? undefined,
-            toolsExecuted: m.metadata?.tools_executed ?? [],
+            toolsExecuted: (m.metadata?.tools_executed as string[]) ?? [],
             timestamp: m.created_at,
+            metadata: m.metadata,
           }))
           setMessages(mapped)
           // Restaurar último agente y tools del último mensaje del agente
@@ -118,13 +120,32 @@ export default function DemoPage() {
         return
       }
 
-      setMessages((prev) => [...prev, {
-        role: 'agent',
-        content: data.response,
-        agentType: data.agentType,
-        toolsExecuted: data.toolsExecuted,
-        timestamp: new Date().toISOString(),
-      }])
+      if (data.agentType === 'purchase') {
+        // El agente de compras guarda directamente en DB (PDF card + texto)
+        // Recargar todos los mensajes para mostrar la tarjeta de factura
+        const reloadRes = await fetch('/api/demo/chat')
+        const reloadData = await reloadRes.json()
+        if (reloadData.messages && reloadData.messages.length > 0) {
+          setMessages(reloadData.messages.map((m: {
+            sender: string; content: string; agent_type?: string
+            metadata?: Record<string, unknown>; created_at: string
+          }) => ({
+            role: m.sender === 'lead' ? 'user' : 'agent',
+            content: m.content,
+            agentType: m.agent_type ?? undefined,
+            toolsExecuted: [],
+            timestamp: m.created_at,
+          })))
+        }
+      } else {
+        setMessages((prev) => [...prev, {
+          role: 'agent',
+          content: data.response,
+          agentType: data.agentType,
+          toolsExecuted: data.toolsExecuted,
+          timestamp: new Date().toISOString(),
+        }])
+      }
 
       setLead(data.lead)
       setLastAgentType(data.agentType)
@@ -210,7 +231,48 @@ export default function DemoPage() {
               </div>
             )}
 
-            {messages.map((msg, i) => (
+            {messages.map((msg, i) => {
+              // Tarjeta especial para facturas PDF (agente de compras)
+              const isPdfInvoice = msg.agentType === 'purchase' && msg.metadata?.pdf_base64
+              if (isPdfInvoice) {
+                const meta = msg.metadata as { invoice_number: string; total_amount: number; currency: string; pdf_base64: string; filename: string }
+                return (
+                  <div key={i} className="flex gap-3 justify-start">
+                    <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-sm flex-shrink-0 mt-1">🛒</div>
+                    <div className="flex flex-col items-start max-w-[75%]">
+                      <span className="text-xs mb-1 ml-1 font-medium text-purple-400">🛒 Compras</span>
+                      <div className="bg-gradient-to-br from-purple-900/60 to-slate-800 border border-purple-600/40 rounded-2xl rounded-bl-none px-4 py-3 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">📄</span>
+                          <div>
+                            <div className="text-sm font-semibold text-white">Factura generada</div>
+                            <div className="text-xs text-purple-300">{meta.invoice_number}</div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-slate-300 bg-slate-900/60 rounded-lg px-3 py-2">{msg.content}</div>
+                        <button
+                          onClick={() => {
+                            const bytes = Uint8Array.from(atob(meta.pdf_base64), (c) => c.charCodeAt(0))
+                            const blob = new Blob([bytes], { type: 'application/pdf' })
+                            const url = URL.createObjectURL(blob)
+                            const a = document.createElement('a')
+                            a.href = url
+                            a.download = meta.filename || `${meta.invoice_number}.pdf`
+                            a.click()
+                            URL.revokeObjectURL(url)
+                          }}
+                          className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+                        >
+                          ⬇️ Descargar PDF
+                        </button>
+                      </div>
+                      <span className="text-xs text-slate-600 mt-1 mx-1">{formatDistanceToNow(new Date(msg.timestamp), { addSuffix: true, locale: es })}</span>
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
               <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'agent' && (
                   <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-sm flex-shrink-0 mt-1">
@@ -249,7 +311,8 @@ export default function DemoPage() {
                   </div>
                 )}
               </div>
-            ))}
+              )
+            })}
 
             {loading && (
               <div className="flex gap-3 justify-start">
