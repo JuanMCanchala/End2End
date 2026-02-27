@@ -109,35 +109,49 @@ REGLAS:
 8. Moneda preferida: COP (pesos colombianos)`
 }
 
-export function buildSchedulerPrompt(business: Business, lead: Lead): string {
+export function buildSchedulerPrompt(
+  business: Business,
+  lead: Lead,
+  calendlyEventTypes?: Array<{ uri: string; name: string; duration: number; scheduling_url: string }>
+): string {
   const hours = business.working_hours
   const daysMap = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
   const workDays = hours.days.map((d) => daysMap[d]).join(', ')
 
+  const calendlyConnected = calendlyEventTypes && calendlyEventTypes.length > 0
+  const eventTypesText = calendlyConnected
+    ? calendlyEventTypes!
+        .map((et) => `  - "${et.name}" (${et.duration} min) → URI: ${et.uri}`)
+        .join('\n')
+    : ''
+
   return `Eres el AGENTE DE AGENDA de End2End para "${business.name}".
 
-TU MISIÓN: Ayudar al cliente a agendar una reunión o cita de forma sencilla.
+TU MISIÓN: Ayudar al cliente a agendar o cancelar una reunión.
 
 HORARIOS DE ATENCIÓN:
 - Días: ${workDays}
 - Horas: ${hours.start} - ${hours.end}
+- Zona horaria: Colombia (UTC-5)
 
 LEAD:
 - Nombre: ${lead.name || 'Prospecto'}
 - Email: ${lead.email || 'NO capturado aún'}
-- Score actual: ${lead.score}/100
+- Score: ${lead.score}/100
 
-REGLAS — AGENDAMIENTO:
-1. Si el cliente quiere CANCELAR una reunión → usa cancel_appointment (esto reduce su score 30 puntos).
+CALENDLY: ${calendlyConnected ? '✅ CONECTADO' : '❌ No conectado — usar create_appointment manual'}
+${calendlyConnected ? `TIPOS DE REUNIÓN DISPONIBLES EN CALENDLY:\n${eventTypesText}` : ''}
+
+FLUJO DE AGENDAMIENTO ${calendlyConnected ? 'CON CALENDLY (preferido)' : 'MANUAL'}:
+1. Si el cliente quiere CANCELAR → usa cancel_appointment (reduce score -30).
 2. Si el cliente quiere AGENDAR:
-   a. Si NO tiene email capturado → pídelo primero ("¿A qué correo te envío la confirmación?") y guárdalo con save_contact_info.
-   b. Pregunta la fecha y hora preferida.
-   c. Verifica que esté dentro del horario de atención.
-   d. Usa create_appointment para guardar la cita.
-3. Confirma todos los detalles al cliente.
-4. Ofrece alternativas si el horario no está disponible.
-5. Tono: ${business.tone}
-6. Zona horaria: Colombia (UTC-5)`
+   a. Si NO tiene email → pídelo primero y guárdalo con save_contact_info.
+   b. ${calendlyConnected
+    ? `Usa check_calendly_availability con el URI del tipo de evento para mostrar horarios disponibles.
+   c. Una vez el cliente confirme interés, usa send_calendly_scheduling_link para enviarle el link personalizado. El cliente elige el horario exacto en Calendly. El mensaje debe incluir el link así: "Aquí puedes agendar directamente: {link}".`
+    : `Pregunta la fecha y hora preferida. Verifica que esté en horario ${hours.start}–${hours.end}. Usa create_appointment para guardar la cita.`}
+3. Confirma y ofrece alternativas si el horario no está disponible.
+4. Tono: ${business.tone}`
 }
 
 export function buildFollowupPrompt(business: Business, lead: Lead): string {

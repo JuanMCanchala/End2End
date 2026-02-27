@@ -11,6 +11,12 @@ export interface Business {
   working_hours: WorkingHours
   whatsapp_number: string | null
   setup_completed: boolean
+  // Calendly integration
+  calendly_access_token?: string | null
+  calendly_refresh_token?: string | null
+  calendly_user_uri?: string | null
+  calendly_org_uri?: string | null
+  calendly_token_expires_at?: string | null
   created_at: string
   updated_at: string
 }

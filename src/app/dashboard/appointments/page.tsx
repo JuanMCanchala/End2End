@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Appointment, LeadTemperature } from '@/types'
 import { TEMPERATURE_LABELS, TEMPERATURE_COLORS } from '@/lib/utils/constants'
 import { format, formatDistanceToNow, isPast, isToday, isTomorrow } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { useToast } from '@/hooks/use-toast'
 
 interface AppointmentWithLead extends Appointment {
   lead: {
@@ -39,10 +41,49 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<AppointmentWithLead[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('upcoming')
+  const [calendlyConnected, setCalendlyConnected] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
 
   useEffect(() => {
     loadAppointments()
+    checkCalendlyStatus()
+
+    // Show toast from OAuth redirect
+    if (searchParams.get('calendly_connected')) {
+      toast({ title: '✅ Calendly conectado', description: 'Tu cuenta de Calendly fue vinculada correctamente.' })
+    } else if (searchParams.get('calendly_error')) {
+      toast({ title: 'Error al conectar Calendly', description: 'Intenta de nuevo.', variant: 'destructive' })
+    }
   }, [])
+
+  async function checkCalendlyStatus() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: biz } = await supabase
+      .from('businesses')
+      .select('calendly_access_token')
+      .eq('user_id', user.id)
+      .single()
+    setCalendlyConnected(!!biz?.calendly_access_token)
+  }
+
+  async function handleSync() {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/calendly/sync', { method: 'POST' })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      toast({ title: `✅ Sincronización completa`, description: `${data.synced} nuevas citas importadas de Calendly.` })
+      loadAppointments()
+    } catch {
+      toast({ title: 'Error al sincronizar', variant: 'destructive' })
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   // Realtime
   useEffect(() => {
@@ -90,14 +131,42 @@ export default function AppointmentsPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Citas Agendadas</h1>
-        <p className="text-slate-400 text-sm mt-1">
-          {appointments.length} cita{appointments.length !== 1 ? 's' : ''} en total
-          {upcomingCount > 0 && (
-            <span className="text-purple-400 ml-2">· {upcomingCount} próxima{upcomingCount !== 1 ? 's' : ''}</span>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Citas Agendadas</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            {appointments.length} cita{appointments.length !== 1 ? 's' : ''} en total
+            {upcomingCount > 0 && (
+              <span className="text-purple-400 ml-2">· {upcomingCount} próxima{upcomingCount !== 1 ? 's' : ''}</span>
+            )}
+          </p>
+        </div>
+
+        {/* Calendly actions */}
+        <div className="flex items-center gap-2">
+          {calendlyConnected ? (
+            <>
+              <div className="flex items-center gap-1.5 text-xs text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1.5 rounded-lg">
+                <div className="w-1.5 h-1.5 bg-green-400 rounded-full" />
+                Calendly conectado
+              </div>
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {syncing ? '⏳ Sincronizando...' : '🔄 Sincronizar Calendly'}
+              </button>
+            </>
+          ) : (
+            <a
+              href="/api/calendly/connect"
+              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 hover:text-blue-200 rounded-lg text-sm font-medium transition-colors"
+            >
+              🗓️ Conectar Calendly
+            </a>
           )}
-        </p>
+        </div>
       </div>
 
       {/* Filters */}

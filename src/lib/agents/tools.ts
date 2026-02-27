@@ -159,6 +159,30 @@ export const PROPOSAL_TOOLS: Anthropic.Tool[] = [
 export const SCHEDULER_TOOLS: Anthropic.Tool[] = [
   SAVE_CONTACT_INFO_TOOL,
   {
+    name: 'check_calendly_availability',
+    description: 'Consultar los horarios disponibles en Calendly para los próximos días. Usar cuando Calendly está conectado para mostrar opciones reales al cliente.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        event_type_uri: { type: 'string', description: 'URI del tipo de evento de Calendly' },
+        days_ahead: { type: 'number', description: 'Días hacia adelante a consultar (máx 5, default 3)' },
+      },
+      required: ['event_type_uri'],
+    },
+  },
+  {
+    name: 'send_calendly_scheduling_link',
+    description: 'Crear un link único de Calendly y enviarlo al cliente para que elija su horario. Usar en lugar de create_appointment cuando Calendly está conectado.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        event_type_uri: { type: 'string', description: 'URI del tipo de evento de Calendly' },
+        message: { type: 'string', description: 'Mensaje para el cliente que incluirá el link de agendamiento' },
+      },
+      required: ['event_type_uri', 'message'],
+    },
+  },
+  {
     name: 'cancel_appointment',
     description: 'Cancelar la cita más reciente del lead cuando el cliente lo solicita. Reduce el score del lead.',
     input_schema: {
