@@ -64,6 +64,47 @@ export async function GET(req: Request) {
 
     if (updateError) throw updateError
 
+    // Register Calendly webhook automatically
+    try {
+      const webhookUrl = `${appUrl}/api/calendly/webhook`
+      const orgUri = calendlyUser.current_organization
+
+      // Check if webhook already exists
+      const existingWebhooks = await fetch(
+        `https://api.calendly.com/webhook_subscriptions?organization=${encodeURIComponent(orgUri)}&scope=organization`,
+        { headers: { Authorization: `Bearer ${access_token}` } }
+      )
+      const whData = await existingWebhooks.json()
+      const alreadyRegistered = (whData.collection || []).some(
+        (wh: { callback_url: string }) => wh.callback_url === webhookUrl
+      )
+
+      if (!alreadyRegistered) {
+        const whRes = await fetch('https://api.calendly.com/webhook_subscriptions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: webhookUrl,
+            events: ['invitee.created', 'invitee.canceled'],
+            organization: orgUri,
+            user: calendlyUser.uri,
+            scope: 'user',
+            signing_key: process.env.CALENDLY_WEBHOOK_SIGNING_KEY!,
+          }),
+        })
+        if (!whRes.ok) {
+          console.error('Failed to register Calendly webhook:', await whRes.text())
+        } else {
+          console.log('Calendly webhook registered successfully')
+        }
+      }
+    } catch (whErr) {
+      console.error('Error registering Calendly webhook (non-fatal):', whErr)
+    }
+
     dashboardUrl.searchParams.set('calendly_connected', '1')
     return NextResponse.redirect(dashboardUrl)
   } catch (err) {
