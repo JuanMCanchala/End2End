@@ -14,6 +14,17 @@ export const ORCHESTRATOR_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'route_to_purchase',
+    description: 'Enviar al agente de compra cuando el cliente quiere comprar una cantidad específica de productos (ej: "quiero 50 tableros", "necesito 10 unidades de X"). Diferente de una propuesta: el cliente ya decidió comprar.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        product_query: { type: 'string', description: 'Qué quiere comprar el cliente y en qué cantidad' },
+      },
+      required: ['product_query'],
+    },
+  },
+  {
     name: 'route_to_proposal',
     description: 'Enviar al agente de propuestas para generar una cotización',
     input_schema: {
@@ -256,6 +267,50 @@ export const SETUP_TOOLS: Anthropic.Tool[] = [
         summary_message: { type: 'string', description: 'Mensaje de resumen de la configuración completada' },
       },
       required: ['summary_message'],
+    },
+  },
+]
+
+// ─── Purchase Agent Tools ───────────────────────────────────────────────────
+
+const ORDER_ITEM_SCHEMA = {
+  type: 'object' as const,
+  properties: {
+    product_name: { type: 'string', description: 'Nombre exacto del producto del catálogo' },
+    quantity: { type: 'number', description: 'Cantidad solicitada' },
+    unit_price: { type: 'number', description: 'Precio unitario del catálogo' },
+    total: { type: 'number', description: 'quantity × unit_price' },
+  },
+  required: ['product_name', 'quantity', 'unit_price', 'total'],
+}
+
+export const PURCHASE_TOOLS: Anthropic.Tool[] = [
+  {
+    name: 'confirm_order',
+    description: 'Presenta el resumen del pedido al cliente para que confirme antes de generar la factura. Llama esto PRIMERO cuando el cliente quiere comprar.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        items: { type: 'array', items: ORDER_ITEM_SCHEMA, description: 'Lista de productos del pedido' },
+        total_amount: { type: 'number', description: 'Total del pedido' },
+        currency: { type: 'string', default: 'COP' },
+        confirmation_message: { type: 'string', description: 'Mensaje que se enviará al cliente solicitando confirmación (incluye el resumen del pedido y el total)' },
+      },
+      required: ['items', 'total_amount', 'confirmation_message'],
+    },
+  },
+  {
+    name: 'send_invoice_and_close',
+    description: 'El cliente confirmó el pedido. Genera la factura PDF, la envía y cierra el chat. Llama esto SOLO cuando el cliente diga sí/confirmo/de acuerdo.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        items: { type: 'array', items: ORDER_ITEM_SCHEMA, description: 'Lista de productos confirmados' },
+        total_amount: { type: 'number', description: 'Total confirmado' },
+        currency: { type: 'string', default: 'COP' },
+        closing_message: { type: 'string', description: 'Mensaje final de agradecimiento (ej: Gracias por tu compra, vamos a verificar el pago)' },
+      },
+      required: ['items', 'total_amount', 'closing_message'],
     },
   },
 ]

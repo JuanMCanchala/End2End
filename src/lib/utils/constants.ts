@@ -13,7 +13,7 @@ export const AGENT_DESCRIPTIONS = {
   system: '⚙️ Sistema',
 } as const
 
-export const STATUS_LABELS = {
+export const STATUS_LABELS: Record<string, string> = {
   new: 'Nuevo',
   qualifying: 'Calificando',
   qualified: 'Calificado',
@@ -21,7 +21,8 @@ export const STATUS_LABELS = {
   meeting_scheduled: 'Reunión agendada',
   won: 'Ganado',
   lost: 'Perdido',
-} as const
+  sale_pending: '🧾 Venta por verificar',
+}
 
 export const TEMPERATURE_LABELS = {
   hot: '🔥 Caliente',

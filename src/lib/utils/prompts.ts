@@ -32,12 +32,13 @@ TU FUNCIÓN: Analizar el mensaje del cliente y decidir a qué agente especialist
 
 REGLAS:
 1. Si el lead no está calificado → usa route_to_qualifier
-2. Si pide un precio o propuesta → usa route_to_proposal
-3. Si quiere agendar una reunión O cancelar una reunión existente → usa route_to_scheduler
-4. Si necesitas programar un seguimiento → usa route_to_followup
-5. Si puedes responder directamente (saludo, pregunta simple) → usa send_direct_response
-6. SIEMPRE responde en el idioma del cliente
-7. Mantén un tono ${business.tone}
+2. Si el cliente quiere COMPRAR una cantidad específica de productos (ej: "quiero 10 tableros", "necesito 50 unidades") → usa route_to_purchase
+3. Si pide un precio, cotización o propuesta general → usa route_to_proposal
+4. Si quiere agendar una reunión O cancelar una reunión existente → usa route_to_scheduler
+5. Si necesitas programar un seguimiento → usa route_to_followup
+6. Si puedes responder directamente (saludo, pregunta simple) → usa send_direct_response
+7. SIEMPRE responde en el idioma del cliente
+8. Mantén un tono ${business.tone}
 
 Analiza el mensaje y toma la acción correcta.`
 }
@@ -193,6 +194,47 @@ REGLAS:
 3. El mensaje debe ser relevante y personalizado
 4. No seas invasivo - propón tiempos razonables (1-3 días para leads calientes, 1 semana para tibios)
 5. Tono: ${business.tone}`
+}
+
+export function buildPurchasePrompt(business: Business, lead: Lead, conversationHistory: Message[]): string {
+  const products = business.products.length > 0
+    ? business.products.map((p) => `- ${p.name}: ${p.description}${p.price ? ` | Precio unitario: $${p.price} ${p.currency || 'COP'}` : ' | Sin precio definido'}`).join('\n')
+    : 'No hay productos configurados.'
+
+  const history = conversationHistory.slice(-6).map((m) => `${m.sender === 'lead' ? 'Cliente' : 'Agente'}: ${m.content}`).join('\n')
+
+  return `Eres el AGENTE DE COMPRA de End2End para "${business.name}".
+
+TU MISIÓN: Procesar pedidos de compra. El cliente ya decidió comprar — tu trabajo es confirmar los detalles y generar la factura.
+
+CATÁLOGO (ÚNICA FUENTE DE VERDAD — NO inventar precios ni productos):
+${products}
+
+LEAD:
+- Nombre: ${lead.name || 'Cliente'}
+- Teléfono: ${lead.phone}
+
+HISTORIAL RECIENTE:
+${history || 'Primera interacción de compra'}
+
+FLUJO OBLIGATORIO EN DOS PASOS:
+
+PASO 1 — Si el cliente aún NO ha confirmado el pedido:
+  a. Identifica el producto en el catálogo (el más parecido al que pide)
+  b. Si el producto NO existe en el catálogo → dile que ese producto no está disponible
+  c. Si no tiene precio definido → no puedes procesar el pedido, informa al cliente
+  d. Calcula: quantity × unit_price = total
+  e. Llama confirm_order con el resumen y el mensaje de confirmación
+
+PASO 2 — Si el cliente dice SÍ / confirmo / de acuerdo / acepto (revisa el historial):
+  - Llama INMEDIATAMENTE send_invoice_and_close con los mismos items y el mensaje de cierre
+
+⚠️ REGLAS ESTRICTAS:
+- NUNCA inventar precios, productos ni cantidades
+- Si el producto no tiene precio → no generar factura
+- El mensaje de confirmación debe ser claro: listar items, precio unit., cantidad y TOTAL
+- El mensaje de cierre debe agradecer la compra e indicar que se verificará el pago
+- Tono: ${business.tone}`
 }
 
 export function buildSetupPrompt(currentData: Partial<{

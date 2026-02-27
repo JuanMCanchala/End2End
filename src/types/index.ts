@@ -59,7 +59,7 @@ export interface Lead {
   updated_at: string
 }
 
-export type LeadStatus = 'new' | 'qualifying' | 'qualified' | 'proposal_sent' | 'meeting_scheduled' | 'won' | 'lost'
+export type LeadStatus = 'new' | 'qualifying' | 'qualified' | 'proposal_sent' | 'meeting_scheduled' | 'won' | 'lost' | 'sale_pending'
 export type LeadTemperature = 'hot' | 'warm' | 'cold'
 
 export interface Conversation {
@@ -76,7 +76,7 @@ export interface Conversation {
   messages?: Message[]
 }
 
-export type ConversationStatus = 'active' | 'human_takeover' | 'paused' | 'closed'
+export type ConversationStatus = 'active' | 'human_takeover' | 'paused' | 'closed' | 'sale_pending'
 
 export interface Message {
   id: string

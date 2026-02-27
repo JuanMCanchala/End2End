@@ -82,6 +82,36 @@ export function parseTelegramUpdate(update: TelegramUpdate) {
   }
 }
 
+/** Envía un documento (PDF, etc.) como archivo adjunto por Telegram */
+export async function sendTelegramDocument(
+  chatId: string | number,
+  fileBuffer: Buffer,
+  filename: string,
+  caption?: string
+): Promise<boolean> {
+  try {
+    const form = new FormData()
+    form.append('chat_id', String(chatId))
+    form.append('document', new Blob([new Uint8Array(fileBuffer)], { type: 'application/pdf' }), filename)
+    if (caption) form.append('caption', caption)
+
+    const res = await fetch(`${TELEGRAM_API}/sendDocument`, {
+      method: 'POST',
+      body: form,
+    })
+    const data = await res.json()
+    if (!data.ok) {
+      console.error('[Telegram] sendDocument failed:', data)
+      return false
+    }
+    console.log(`[Telegram] Document sent OK → chat_id: ${chatId} | file: ${filename}`)
+    return true
+  } catch (error) {
+    console.error('[Telegram] sendDocument FAILED:', error)
+    return false
+  }
+}
+
 /** Registra el webhook de Telegram (llamar una vez al configurar) */
 export async function setTelegramWebhook(url: string) {
   const res = await fetch(`${TELEGRAM_API}/setWebhook`, {

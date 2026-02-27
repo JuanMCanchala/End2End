@@ -6,6 +6,7 @@ import { runQualifierAgent } from './qualifier'
 import { runProposalAgent } from './proposal'
 import { runSchedulerAgent } from './scheduler'
 import { runFollowupAgent } from './followup'
+import { runPurchaseAgent } from './purchase'
 import { logAgentAction } from './agent-actions'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -25,6 +26,22 @@ export async function runOrchestratorAgent(input: OrchestratorInput): Promise<Ag
   let routedResult: AgentLoopResult | null = null
 
   const toolHandlers: ToolHandler = {
+    route_to_purchase: async (toolInput) => {
+      routedAgent = 'purchase'
+      routedResult = await runPurchaseAgent({ business, lead, conversation, messages, incomingMessage })
+      await logAgentAction(supabase, {
+        business_id: business.id,
+        conversation_id: conversation.id,
+        lead_id: lead.id,
+        agent_type: 'orchestrator',
+        action_type: 'route_to_purchase',
+        description: `Ruteado al Agente de Compra: ${(toolInput as { product_query: string }).product_query}`,
+        input_data: toolInput as Record<string, unknown>,
+        output_data: { routed_to: 'purchase' },
+      })
+      return { success: true, routed_to: 'purchase' }
+    },
+
     route_to_qualifier: async (toolInput) => {
       routedAgent = 'qualifier'
       routedResult = await runQualifierAgent({ business, lead, conversation, messages, incomingMessage })
