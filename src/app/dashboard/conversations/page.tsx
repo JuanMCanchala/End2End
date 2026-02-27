@@ -20,12 +20,23 @@ export default function ConversationsPage() {
 
   useEffect(() => {
     const supabase = createClient()
+    let debounceTimer: ReturnType<typeof setTimeout>
+
+    const debouncedLoad = () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(loadConversations, 800)
+    }
+
     const channel = supabase
       .channel('conversations-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadConversations())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadConversations())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, debouncedLoad)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, debouncedLoad)
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+
+    return () => {
+      clearTimeout(debounceTimer)
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   async function loadConversations() {

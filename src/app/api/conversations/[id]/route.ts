@@ -50,10 +50,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       if (body[field] !== undefined) updates[field] = body[field]
     }
 
+    const { data: business } = await supabase.from('businesses').select('id').eq('user_id', user.id).single()
+    if (!business) return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+
     const { data, error } = await supabase
       .from('conversations')
       .update(updates)
       .eq('id', params.id)
+      .eq('business_id', business.id)
       .select()
       .single()
 

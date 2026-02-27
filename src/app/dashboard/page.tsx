@@ -1,13 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import MetricsCards from '@/components/dashboard/MetricsCards'
 import { DashboardMetrics } from '@/types'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
-} from 'recharts'
+
+// Lazy load Recharts — reduce ~400KB del bundle inicial
+const BarChart = dynamic(() => import('recharts').then(m => m.BarChart), { ssr: false })
+const Bar = dynamic(() => import('recharts').then(m => m.Bar), { ssr: false })
+const XAxis = dynamic(() => import('recharts').then(m => m.XAxis), { ssr: false })
+const YAxis = dynamic(() => import('recharts').then(m => m.YAxis), { ssr: false })
+const Tooltip = dynamic(() => import('recharts').then(m => m.Tooltip), { ssr: false })
+const ResponsiveContainer = dynamic(() => import('recharts').then(m => m.ResponsiveContainer), { ssr: false })
+const PieChart = dynamic(() => import('recharts').then(m => m.PieChart), { ssr: false })
+const Pie = dynamic(() => import('recharts').then(m => m.Pie), { ssr: false })
+const Cell = dynamic(() => import('recharts').then(m => m.Cell), { ssr: false })
 
 const TEMP_COLORS = { hot: '#f87171', warm: '#fb923c', cold: '#60a5fa' }
 
@@ -22,16 +30,26 @@ export default function DashboardPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Realtime updates
+  // Realtime con debounce — evita múltiples refetches seguidos cuando llegan ráfagas de eventos
   useEffect(() => {
     const supabase = createClient()
+    let debounceTimer: ReturnType<typeof setTimeout>
+
+    const debouncedLoad = () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(loadMetrics, 800)
+    }
+
     const channel = supabase
       .channel('dashboard-metrics')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadMetrics())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadMetrics())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, debouncedLoad)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, debouncedLoad)
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      clearTimeout(debounceTimer)
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   async function loadMetrics() {

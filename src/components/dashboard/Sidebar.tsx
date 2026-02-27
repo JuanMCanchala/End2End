@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { href: '/dashboard', label: 'Métricas', icon: '📊' },
-  { href: '/dashboard/leads', label: 'Leads', icon: '🎯' },
-  { href: '/dashboard/conversations', label: 'Conversaciones', icon: '💬' },
-  { href: '/dashboard/activity', label: 'Actividad IA', icon: '🤖' },
+  { href: '/dashboard', label: 'Métricas', icon: '📊', demo: false },
+  { href: '/dashboard/leads', label: 'Leads', icon: '🎯', demo: false },
+  { href: '/dashboard/conversations', label: 'Conversaciones', icon: '💬', demo: false },
+  { href: '/dashboard/activity', label: 'Actividad IA', icon: '🤖', demo: false },
+  { href: '/dashboard/demo', label: 'Demo Chat', icon: '🧪', demo: true },
 ]
 
 export default function Sidebar() {
@@ -20,7 +21,8 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.replace('/login')
+    router.refresh()
   }
 
   return (
@@ -41,13 +43,20 @@ export default function Sidebar() {
               href={item.href}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-purple-600/20 text-purple-300 border border-purple-600/30'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                item.demo
+                  ? isActive
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'text-slate-400 hover:bg-amber-500/10 hover:text-amber-300'
+                  : isActive
+                    ? 'bg-purple-600/20 text-purple-300 border border-purple-600/30'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               )}
             >
               <span>{item.icon}</span>
               {item.label}
+              {item.demo && !isActive && (
+                <span className="ml-auto text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">TEST</span>
+              )}
             </Link>
           )
         })}
