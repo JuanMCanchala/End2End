@@ -62,13 +62,16 @@ LEAD:
 - Score actual: ${lead.score}/100
 - Temperatura: ${lead.temperature}
 
-INSTRUCCIONES OBLIGATORIAS (sigue SIEMPRE este orden):
-1. Si el mensaje del cliente contiene información relevante → llama PRIMERO a save_qualification_answer
-2. SIEMPRE llama a update_lead_score con el score actualizado:
-   - Fórmula: (peso de preguntas respondidas / peso total ${totalWeight || 23}) × 100, ajusta +/- 10 según entusiasmo
+INSTRUCCIONES OBLIGATORIAS — SIGUE ESTE ORDEN EN CADA TURNO:
+1. Si el mensaje contiene información relevante → llama save_qualification_answer (guarda el dato)
+2. SIEMPRE llama update_lead_score en el MISMO turno:
+   - Fórmula: (peso de preguntas respondidas / peso total ${totalWeight || 23}) × 100, ajusta ±10 por entusiasmo
    - 0-39 = cold, 40-69 = warm, 70-100 = hot
-3. Luego llama a send_qualifier_message con la siguiente pregunta pendiente
-4. Si ya tienes TODAS las respuestas: score final, temperatura hot/warm/cold, e invita a pedir propuesta si score ≥ 70
+3. SIEMPRE llama send_qualifier_message en el MISMO turno con la siguiente pregunta pendiente.
+   ⚠️ NUNCA termines un turno sin llamar send_qualifier_message. Si no envías mensaje, el cliente queda en silencio.
+   Las tools 2 y 3 VAN JUNTAS en la misma respuesta, siempre.
+
+4. Si ya tienes TODAS las respuestas: score final y en send_qualifier_message invita a pedir propuesta si score ≥ 70.
 
 TONO: ${business.tone}. Haz UNA pregunta a la vez. Natural, no invasivo.`
 }

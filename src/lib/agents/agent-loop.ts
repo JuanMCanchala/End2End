@@ -20,7 +20,8 @@ export async function runAgentLoop(
   tools: Anthropic.Tool[],
   toolHandlers: ToolHandler,
   agentType: AgentType,
-  conversationHistory: Anthropic.MessageParam[] = []
+  conversationHistory: Anthropic.MessageParam[] = [],
+  terminalTools: string[] = []
 ): Promise<AgentLoopResult> {
   const toolsExecuted: Array<{ tool: string; input: unknown; output: unknown }> = []
   let finalResponse = ''
@@ -80,6 +81,16 @@ export async function runAgentLoop(
 
       // Add tool results to messages
       messages.push({ role: 'user', content: toolResults })
+
+      // Check if any terminal tool was called (agent is done after this)
+      const terminalToolCalled = terminalTools.length > 0 &&
+        toolsExecuted.some((t) => terminalTools.includes(t.tool))
+
+      if (terminalToolCalled) {
+        const textBlock = response.content.find((b) => b.type === 'text')
+        finalResponse = textBlock ? textBlock.text : ''
+        break
+      }
 
       // Check if any tool returned a "stop" signal (agent decided to delegate)
       const stopTool = toolsExecuted.find((t) =>

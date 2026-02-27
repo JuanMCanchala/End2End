@@ -89,11 +89,11 @@ export const QUALIFIER_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'send_qualifier_message',
-    description: 'Enviar un mensaje de calificación al lead',
+    description: 'OBLIGATORIO en cada turno. Envía el mensaje al cliente. SIEMPRE debe llamarse junto con update_lead_score en la misma respuesta. Sin esta llamada el cliente no recibe respuesta.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        message: { type: 'string', description: 'Pregunta o mensaje a enviar' },
+        message: { type: 'string', description: 'Pregunta o mensaje a enviar al cliente' },
       },
       required: ['message'],
     },

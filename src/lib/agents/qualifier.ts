@@ -5,6 +5,7 @@ import { Business, Lead, Conversation, Message, LeadTemperature } from '@/types'
 import { logAgentAction } from './agent-actions'
 import { createServiceClient } from '@/lib/supabase/server'
 import { LEAD_SCORE_THRESHOLDS } from '@/lib/utils/constants'
+import { anthropic, CLAUDE_MODEL } from '@/lib/claude/client'
 
 function calcScore(qualData: Record<string, string>, questions: Business['qualification_questions']): { score: number; temperature: LeadTemperature } {
   if (questions.length === 0) {
@@ -154,13 +155,39 @@ export async function runQualifierAgent(input: QualifierInput): Promise<AgentLoo
     QUALIFIER_TOOLS,
     toolHandlers,
     'qualifier',
-    conversationContext
+    conversationContext,
+    ['send_qualifier_message'] // Cortar el loop en cuanto se envíe el mensaje
   )
 
-  // Use tool message or LLM response
+  const finalResponse = finalMessage || result.finalResponse
+
+  // Fallback de seguridad: si no se generó ningún mensaje (bug del LLM),
+  // hacer una llamada simple para obtener respuesta de texto
+  if (!finalResponse) {
+    const fallback = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 512,
+      system: systemPrompt,
+      messages: [
+        ...conversationContext,
+        { role: 'user', content: incomingMessage },
+        {
+          role: 'user',
+          content: 'IMPORTANTE: Responde SOLO con el mensaje de texto que debes enviarle al cliente ahora. Sin usar tools.',
+        },
+      ],
+    })
+    const textBlock = fallback.content.find((b) => b.type === 'text')
+    return {
+      ...result,
+      finalResponse: textBlock?.text || '¿En qué más puedo ayudarte?',
+      agentType: 'qualifier',
+    }
+  }
+
   return {
     ...result,
-    finalResponse: finalMessage || result.finalResponse,
+    finalResponse,
     agentType: 'qualifier',
   }
 }
