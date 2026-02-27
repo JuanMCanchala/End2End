@@ -12,8 +12,8 @@ const agents = [
 const steps = [
   {
     number: '01',
-    title: 'Conectas tu WhatsApp',
-    desc: 'Vincula tu número de Twilio en minutos. Sin código, sin instalaciones.',
+    title: 'Escribe desde tu celular',
+    desc: 'Tus clientes te contactan por WhatsApp como siempre. Sin apps nuevas, sin links raros.',
     icon: '📱',
   },
   {
@@ -316,7 +316,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="text-center py-8 text-gray-500 text-sm border-t border-white/10">
-        End2End © 2024 — Construido para el Hackathon IA USB Cali
+        End2End © 2026 — Construido para el Hackathon IA USB Cali
       </footer>
     </div>
   )
