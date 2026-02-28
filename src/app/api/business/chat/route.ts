@@ -79,7 +79,7 @@ function buildSystemPrompt(business: Business): string {
 - **Tono:** ${business.tone || 'profesional'}
 - **Productos/servicios:** ${business.products?.length > 0 ? JSON.stringify(business.products, null, 2) : 'Ninguno configurado'}
 - **Preguntas de calificación:** ${business.qualification_questions?.length > 0 ? JSON.stringify(business.qualification_questions, null, 2) : 'Ninguna configurada'}
-- **Horario:** ${business.working_hours ? `${business.working_hours.start} - ${business.working_hours.end}, días: ${business.working_hours.days.join(', ')}` : 'No especificado'}
+- **Horario:** ${business.working_hours ? `${business.working_hours.start} - ${business.working_hours.end}, días: ${(business.working_hours.days || []).join(', ')}` : 'No especificado'}
 
 ## Tu rol
 - Si el usuario quiere **modificar** algo del negocio → llama a la herramienta \`update_business\` con los campos a actualizar.
