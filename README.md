@@ -2,8 +2,6 @@
 
 Equipo de agentes de IA que atiende a los clientes de un negocio por WhatsApp y Telegram de punta a punta: responde, califica al interesado, arma la propuesta en PDF, agenda la reunión en Calendly y hace el seguimiento si no contesta — con un panel donde una persona puede leer todo y tomar el control de la conversación en cualquier momento.
 
-**Demo → [end2-end.vercel.app](https://end2-end.vercel.app)**
-
 ## La idea
 
 Un chatbot responde preguntas. Esto cierra procesos. Cada conversación entra por un **orquestador** que decide a qué agente especializado rutearla, y cada agente tiene sus propias herramientas y puede escribir en la base de datos del negocio.
